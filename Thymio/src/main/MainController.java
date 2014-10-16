@@ -33,7 +33,7 @@ public class MainController extends JFrame {
 		myThymio = new Thymio(myPanel);
 		observer = myThymio.getInterface();
 	}
-	
+	//Thiemo testet auch mal
 	public void init() {		
 		myPanel.setPose(7*myMap.getEdgeLength(), 1*myMap.getEdgeLength(), 0);
 		
