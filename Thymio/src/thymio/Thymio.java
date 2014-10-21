@@ -205,25 +205,27 @@ public class Thymio {
 
 			logData.print(myPanel.getEstimPosX() + "\t" +myPanel.getEstimPosY());
 
+
+			proxHorizontal = myClient.getVariable("prox.horizontal");
+			myPanel.setProxHorizontal(proxHorizontal);
+			
 			sensorData = myClient.getVariable("acc");
 			for (int i = 0; i < sensorData.size(); i++) logData.print("\t" + sensorData.get(i));
 
 			sensorData = myClient.getVariable("prox.ground.ambiant");
-			for (int i = 0; i < sensorData.size(); i++) System.out.print("\t" + sensorData.get(i));
-			System.out.println("");
+			for (int i = 0; i < sensorData.size(); i++) logData.print("\t" + sensorData.get(i));
 			
 			sensorData = myClient.getVariable("prox.ground.delta");
 			for (int i = 0; i < sensorData.size(); i++) logData.print("\t" + sensorData.get(i));
 
 			sensorData = myClient.getVariable("prox.ground.reflected");
 			for (int i = 0; i < sensorData.size(); i++) logData.print("\t" + sensorData.get(i));
-
+			
 			logData.print("\n");
 			logData.flush();
 
-			proxHorizontal = myClient.getVariable("prox.horizontal");
-			myPanel.setProxHorizontal(proxHorizontal);
-
+			myPanel.updatePoseGround(sensorData,
+					                 Math.atan2(secsElapsed*(or+odomRightMean.getStd()-ol-odomLeftMean.getStd()), BASE_WIDTH));
 			myPanel.repaint();
 		}
 

@@ -6,6 +6,7 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Ellipse2D;
+import java.awt.geom.Rectangle2D;
 import java.util.List;
 
 import javax.swing.JFrame;
@@ -24,12 +25,19 @@ public class MapPanel extends JPanel {
 	public static final int LENGTHSCALE = 35;
 	public static final double LENGTH_EDGE_CM = 17;
 	
+	private double poseStdX, poseStdY;
+	private Ellipse2D.Double poseUncertainty;
+	private AffineTransform standardTransf, poseTransform;
+	
 	public MapPanel(Map m, JFrame f) {
 		myMap = m;
 		
 		this.setPreferredSize(new Dimension(myMap.getSizeX()*LENGTHSCALE, myMap.getSizeY()*LENGTHSCALE));
 		this.setMaximumSize(new Dimension(myMap.getSizeX()*LENGTHSCALE, myMap.getSizeY()*LENGTHSCALE));
 		this.setMinimumSize(new Dimension(myMap.getSizeX()*LENGTHSCALE, myMap.getSizeY()*LENGTHSCALE));
+		
+		poseStdX = poseStdY = 0;
+		poseTransform = null;
 	}
 	
 	public void setPose(double x, double y, double theta) {
@@ -45,14 +53,59 @@ public class MapPanel extends JPanel {
 		myMap.setProxHorizontal(val);
 	}
 	
+	public void updatePoseGround(List<Short> sensorVal, double rotStd) {
+		Rectangle2D uncertaintyBounds;
+		double maxProb;
+		double bestX = Double.NaN, bestY = Double.NaN, bestTheta = Double.NaN;
+		
+		poseStdX = Math.sqrt(myMap.getCovariance(0, 0))/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE;
+	    poseStdY = Math.sqrt(myMap.getCovariance(1, 1))/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE;
+	    
+	    standardTransf = ((Graphics2D)this.getGraphics()).getTransform();
+		poseTransform = new AffineTransform();
+		poseTransform.translate(myMap.getEstimPosX()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE,
+				                this.getHeight() - myMap.getEstimPosY()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE);
+		poseTransform.rotate(myMap.getEstimOrientation()+Math.PI/2);
+		poseUncertainty = new Ellipse2D.Double(-0.5*poseStdX, -0.5*poseStdY, poseStdX, poseStdY);
+		
+		((Graphics2D)this.getGraphics()).setTransform(poseTransform);
+		((Graphics2D)this.getGraphics()).fill(poseUncertainty);
+		
+		uncertaintyBounds = poseTransform.createTransformedShape(poseUncertainty).getBounds2D();
+		maxProb = Double.MIN_VALUE;
+
+		for (double dtheta = myMap.getEstimOrientation() - 0.5*rotStd; dtheta <= myMap.getEstimOrientation() + 0.5*rotStd; dtheta += Math.PI/360) {
+			for (double x = uncertaintyBounds.getMinX(); x <= uncertaintyBounds.getMaxX(); x ++) {
+				for (double y = uncertaintyBounds.getMinY(); y <= uncertaintyBounds.getMinY(); y ++) {
+					double p =  myMap.computeSensorProb(x, (double)this.getHeight() - y, dtheta, sensorVal.get(0), 0.155802, sensorVal.get(1), -0.155802, this.getGraphics(), this.getHeight());
+
+					System.out.println(myMap.getEstimPosX() + "/" + myMap.getEstimPosY() + "|" + x + "/" + y);
+					if (p > maxProb) {
+						bestX = x;
+						bestY = this.getHeight() - y;
+						bestTheta = dtheta;
+						maxProb = p;
+
+						System.out.println("new best position: (" + bestX + "," + bestY + "): " + maxProb);
+					}
+				}
+			}
+		}
+		
+		if (maxProb > Double.MIN_VALUE) {
+			System.out.println("new pose: " + (bestX*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE) + "/" + (bestY*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE) + "/" + bestTheta);
+			myMap.setPose(bestX*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE, bestY*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE, bestTheta);			
+		}
+
+		((Graphics2D)this.getGraphics()).setTransform(standardTransf);
+	}
+	
 	public void paint(Graphics g) {
 		double angle = myMap.getEstimOrientation();
 		double diffSensor = 20.0*Math.PI/180.0;
 		double x0, y0;
-		double stdX = Math.sqrt(myMap.getCovariance(0, 0))/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE,
-			   stdY = Math.sqrt(myMap.getCovariance(1, 1))/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE;
+
 		int cellx0, celly0;
-		AffineTransform tmp, rot;
 		
 		myMap.clearOccupancy();
 
@@ -91,37 +144,8 @@ public class MapPanel extends JPanel {
 			}
 		}
 
-		/*
-		for (int i = 1; i < myMap.getSizeX(); i++) g.drawLine(LENGTHSCALE *i-1, 0, LENGTHSCALE * i-1, this.getHeight());
-		for (int i = 1; i < myMap.getSizeY(); i++) g.drawLine(0, LENGTHSCALE * i-1, this.getWidth(), LENGTHSCALE * i-1);
-		*/
 		for (int x = 0; x < myMap.getSizeX(); x++) {
 			for (int y = 0; y < myMap.getSizeY(); y++) {
-				/*
-				if (x == myMap.getThymioX() && y == myMap.getThymioY()) {
-					int [] rotX = new int[3];
-					int [] rotY = new int[3];
-					
-					double endX = LENGTHSCALE*(x+Math.cos(angle));
-					double endY = LENGTHSCALE*(y+Math.sin(angle));
-					
-					g.setColor(Color.BLUE);
-					rotX[0]= (int)endX;
-					rotY[0]= (int) Math.round(this.getHeight()-endY-0.5*LENGTHSCALE);
-
-					endX = LENGTHSCALE*(x+0.5*Math.cos(-Math.PI/2+angle));
-					endY = LENGTHSCALE*(y+0.5*Math.sin(angle-Math.PI/2));
-					rotX[1]= (int)endX;
-					rotY[1]= (int)Math.round(this.getHeight()-endY-0.5*LENGTHSCALE);
-
-					endX = LENGTHSCALE*(x+0.5*Math.cos(Math.PI/2+angle));
-					endY = LENGTHSCALE*(y+0.5*Math.sin(Math.PI/2+angle));
-					rotX[2]= (int)endX;
-					rotY[2]= (int)Math.round(this.getHeight()-endY-0.5*LENGTHSCALE);
-					
-					g.fillPolygon(rotX, rotY, 3);
-				}
-				else */
 				if (myMap.isOnBeam(x,y)) {
 					int posy = myMap.getSizeY() - y;
 
@@ -140,38 +164,27 @@ public class MapPanel extends JPanel {
 		int x0blue = (int)(myMap.getPosX()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE);
 		int y0blue = (int)(myMap.getPosY()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE);
 		
-		int px, py;
+		// draw line for "programmed" orientation, i.e. orientation according to given controls
+		
 		g.setColor(Color.BLUE);
 		g.fillRect(x0blue - 3, this.getHeight() - 3 - y0blue, 6, 6);
 		g.drawLine(x0blue, this.getHeight() - y0blue,
 				(int)(x0blue + 10*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM*Math.cos(myMap.getThymioOrientation())),
                 (int)(this.getHeight() - (y0blue + 10*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM*Math.sin(myMap.getThymioOrientation()))));
-		
-		g.setColor(Color.MAGENTA);
-		
-		px = (int)(x0 + 7.25*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM*Math.cos(angle+0.155802));
-		py = (int)(y0 + 7.25*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM*Math.sin(angle+0.155802));
-		
-		System.out.println((int)(px/MapPanel.LENGTHSCALE) + "/" + (int)(py/MapPanel.LENGTHSCALE));
-		g.drawLine((int)x0, this.getHeight() - (int)y0, px, this.getHeight() - (int)py);
-		
-		px = (int)(x0 + 7.25*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM*Math.cos(angle-0.155802));
-		py = (int)(y0 + 7.25*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM*Math.sin(angle-0.155802));
-		
-		System.out.println((int)(px/MapPanel.LENGTHSCALE) + "/" + (int)(py/MapPanel.LENGTHSCALE));
-		g.drawLine((int)x0, this.getHeight() - (int)y0, px, this.getHeight() - (int)py);
+				
+		// draw line for estimated orientation
 		
 		g.setColor(Color.GREEN);	
 		g.drawLine((int)x0, this.getHeight() - (int)y0, (int)(x0 + 10*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM*Math.cos(angle)),
 				                     (int)(this.getHeight() - (y0 + 10*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM*Math.sin(angle))));
-		tmp = ((Graphics2D)g).getTransform();
-		rot = new AffineTransform();
-		rot.rotate(angle+Math.PI/2, x0, this.getHeight() - y0);
-		((Graphics2D)g).transform(rot);
-		((Graphics2D)g).fill(new Ellipse2D.Double(x0 - 0.5*stdX, this.getHeight() - y0 - 0.5*stdY,
-				  									   stdX,
-				                                       stdY));
-		((Graphics2D)g).transform(tmp);
+		
+		// draw Ellipse for uncertainty of pose, i.e. main axes of covariance matrix as computed by the Kalman Filter.
+
+		if (poseTransform != null) {
+			((Graphics2D)g).transform(poseTransform);
+			((Graphics2D)g).fill(poseUncertainty);
+			((Graphics2D)g).setTransform(standardTransf);
+		}
 	}
 	
 	public double getEstimPosX() {

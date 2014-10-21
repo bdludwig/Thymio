@@ -1,6 +1,14 @@
 package context;
 
 import java.awt.Color;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Rectangle;
+import java.awt.Shape;
+import java.awt.geom.AffineTransform;
+import java.awt.geom.Ellipse2D;
+import java.awt.geom.Path2D;
+import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -108,13 +116,12 @@ public class Map {
 		R = new DenseMatrix64F(valR);
 		
 		// initial state
-/*
-		double [][] valP = {{0, 0, 0, 0, 0},
-				            {0, 0, 0, 0, 0},
-				            {0, 0, 0, 0, 0},
-				            {0, 0, 0, 0, 0},
-				            {0, 0, 0, 0, 0}};*/
-		P = new DenseMatrix64F(valQ);
+
+		double [][] valP = {{0, 0, 0, 0},
+				            {0, 0, 0, 0},
+				            {0, 0, 0, 0},
+				            {0, 0, 0, 0}};
+		P = new DenseMatrix64F(valP);
 		
 		double [] state = {posX, posY, 0, 0};
 		
@@ -320,5 +327,94 @@ public class Map {
 				element[i][j].setOnBeam(false);
 			}
 		}
+	}
+	
+	private double [] computeSensorProb(double posX, double posY, double angle, Graphics g, int height) {
+		AffineTransform tmp, rot;
+		double sensorx = posX + 7.25*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM*Math.cos(angle+estTheta);
+		double sensory = posY + 7.25*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM*Math.sin(angle+estTheta);		
+		Rectangle2D sensorbox = new Rectangle2D.Double(-0.5*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM, -0.25*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM, MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM, 0.5*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM);
+
+		tmp = ((Graphics2D)g).getTransform();
+		
+		rot = new AffineTransform();
+		rot.translate(sensorx, height - sensory);
+		rot.rotate(angle + Math.PI/2);
+
+		((Graphics2D)g).transform(rot);
+		
+		g.setColor(Color.MAGENTA);
+		((Graphics2D)g).fill(sensorbox);
+		
+		Path2D sensingArea = (Path2D)rot.createTransformedShape(sensorbox);
+		Rectangle2D transformedbox = sensingArea.getBounds2D();
+		int lowerx = (int)transformedbox.getMinX();
+		int upperx = (int)transformedbox.getMaxX();
+		int lowery = (int)transformedbox.getMinY();
+		int uppery = (int)transformedbox.getMaxY();
+		int n = 0;
+		double white = 0;
+		double black = 0;
+		double probDist [] = new double[2];
+				
+		for (int i = lowerx; i <= upperx; i++) {
+			for (int j = lowery; j <= uppery; j++) {
+				if (sensingArea.contains(i, j)) {
+					n ++;
+					
+					try {
+						MapElement e = element[(i/MapPanel.LENGTHSCALE)][(j/MapPanel.LENGTHSCALE)];
+						if (e.getColor().getRed() == 255 && e.getColor().getGreen() == 255 && e.getColor().getBlue() == 255) white ++;
+						else black ++;
+					}
+					catch (ArrayIndexOutOfBoundsException e) {
+						// ignore any eventual out of bounds issue
+					}
+				}
+			}
+		}
+		
+		probDist[0] = white/n;
+		probDist[1] = black/n;
+		
+		((Graphics2D)g).setTransform(tmp);
+
+		return probDist;
+	}
+	
+	public double computeSensorProb(double x, double y, double dtheta, int val1, double angle1, int val2, double angle2, Graphics g, int height) {
+		double [] sensorValDist;
+		double sensorProb;
+		
+		System.out.println("computing a posteriori for: " + posX + "/" + posY);
+		sensorValDist = computeSensorProb(x, y, dtheta + angle1, g, height);
+		if (val1 > 300) {
+			// light color
+			
+			sensorProb = sensorValDist[0];
+			System.out.println("prob sensor 1 for " + val1 + ": " + sensorProb + "|" + sensorValDist[0] + "," + sensorValDist[1]);
+		}
+		else {
+			// dark color
+			
+			sensorProb = sensorValDist[1];
+			System.out.println("prob sensor 1 for " + val1 + ": " + sensorProb + "|" + sensorValDist[0] + "," + sensorValDist[1]);
+		}
+
+		sensorValDist = computeSensorProb(x, y, dtheta + angle2, g, height);
+		if (val2 > 300) {
+			// light color
+			
+			sensorProb *= sensorValDist[0];
+			System.out.println("prob sensor 2 for " + val1 + ": " + sensorProb + "|" + sensorValDist[0] + "," + sensorValDist[1]);
+		}
+		else {
+			// dark color
+			
+			sensorProb *= sensorValDist[1];
+			System.out.println("prob sensor 2 for " + val1 + ": " + sensorProb + "|" + sensorValDist[0] + "," + sensorValDist[1]);
+		}
+		
+		return sensorProb;
 	}
 }
