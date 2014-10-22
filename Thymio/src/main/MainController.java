@@ -4,7 +4,7 @@ import javax.swing.BoxLayout;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 
-import observer.ExperimentPanel;
+//import observer.ExperimentPanel;
 import observer.MapPanel;
 import observer.ThymioInterface;
 import thymio.Thymio;
@@ -16,7 +16,7 @@ public class MainController extends JFrame {
 	private Map myMap;
 	private Thymio myThymio;
 	private MapPanel myPanel;
-	private ExperimentPanel exPanel;
+	//private ExperimentPanel exPanel;
 	private JPanel box;
 	
 	public static final int MAPSIZE_X = 9;
@@ -26,7 +26,7 @@ public class MainController extends JFrame {
 		super("Map");
 		
 		myMap = new Map(MAPSIZE_X, MAPSIZE_Y, MapPanel.LENGTH_EDGE_CM);
-		exPanel = new ExperimentPanel(myMap, this);
+		//exPanel = new ExperimentPanel(myMap, this);
 		myPanel = new MapPanel(myMap, this);
 		myThymio = new Thymio(myPanel);
 		observer = myThymio.getInterface();
@@ -36,7 +36,7 @@ public class MainController extends JFrame {
 		box = new JPanel();
 		box.setLayout(new BoxLayout(box, BoxLayout.Y_AXIS));
 		box.add(myPanel);
-		box.add(exPanel);
+		//box.add(exPanel);
 		
 		myPanel.setPose(7*myMap.getEdgeLength(), 1*myMap.getEdgeLength(), 0);
 		
