@@ -1,19 +1,14 @@
 package main;
 
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.Graphics;
-import java.util.Random;
-
+import javax.swing.BoxLayout;
 import javax.swing.JFrame;
+import javax.swing.JPanel;
 
-
-import context.Map;
-import context.Path;
-
+import observer.ExperimentPanel;
 import observer.MapPanel;
 import observer.ThymioInterface;
 import thymio.Thymio;
+import context.Map;
 
 public class MainController extends JFrame {
 	private static final long serialVersionUID = 1L;
@@ -21,6 +16,8 @@ public class MainController extends JFrame {
 	private Map myMap;
 	private Thymio myThymio;
 	private MapPanel myPanel;
+	private ExperimentPanel exPanel;
+	private JPanel box;
 	
 	public static final int MAPSIZE_X = 9;
 	public static final int MAPSIZE_Y = 21;
@@ -29,15 +26,21 @@ public class MainController extends JFrame {
 		super("Map");
 		
 		myMap = new Map(MAPSIZE_X, MAPSIZE_Y, MapPanel.LENGTH_EDGE_CM);
+		exPanel = new ExperimentPanel(myMap, this);
 		myPanel = new MapPanel(myMap, this);
 		myThymio = new Thymio(myPanel);
 		observer = myThymio.getInterface();
 	}
-	//Thiemo testet auch mal
-	public void init() {		
+
+	public void init() {
+		box = new JPanel();
+		box.setLayout(new BoxLayout(box, BoxLayout.Y_AXIS));
+		box.add(myPanel);
+		box.add(exPanel);
+		
 		myPanel.setPose(7*myMap.getEdgeLength(), 1*myMap.getEdgeLength(), 0);
 		
-		this.setContentPane(myPanel);
+		this.setContentPane(box);
 		this.pack();
 		this.setVisible(true);
 	}

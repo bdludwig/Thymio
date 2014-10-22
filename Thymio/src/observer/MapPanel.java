@@ -146,18 +146,13 @@ public class MapPanel extends JPanel {
 
 		for (int x = 0; x < myMap.getSizeX(); x++) {
 			for (int y = 0; y < myMap.getSizeY(); y++) {
-				if (myMap.isOnBeam(x,y)) {
-					int posy = myMap.getSizeY() - y;
+				int posy = myMap.getSizeY() - y;
 
-					g.setColor(new Color(255, 0, 0, 128));
-					g.fillRect(LENGTHSCALE*x, LENGTHSCALE*(posy-1), LENGTHSCALE, LENGTHSCALE);					
-				}
-				else if (myMap.getElement(x, y).getColor() != Color.WHITE) {
-					int posy = myMap.getSizeY() - y;
-
-					g.setColor(myMap.getElement(x, y).getColor());
-					g.fillRect(LENGTHSCALE*x, LENGTHSCALE*(posy-1), LENGTHSCALE, LENGTHSCALE);
-				}
+				if (myMap.isOnBeam(x,y)) g.setColor(new Color(255, 0, 0, 128));
+				else if (myMap.isOccupied(x, y)) g.setColor(Color.RED);					
+				else if (myMap.getElement(x, y).getColor() != Color.WHITE) g.setColor(myMap.getElement(x, y).getColor());
+				
+				g.fillRect(LENGTHSCALE*x, LENGTHSCALE*(posy-1), LENGTHSCALE, LENGTHSCALE);
 			}
 		}
 		
