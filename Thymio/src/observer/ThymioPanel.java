@@ -38,7 +38,10 @@ public class ThymioPanel extends JPanel implements ChangeListener, KeyListener, 
 	}
 	
 	private void initUI() {
+		JPanel buttonPanel = new JPanel();
+		
 		this.setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+		buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.X_AXIS));
 		
 		vForward = new JSlider(JSlider.HORIZONTAL, -(short)(Thymio.MAXSPEED/(10*Thymio.SPEEDCOEFF)), (short)(Thymio.MAXSPEED/(10*Thymio.SPEEDCOEFF)), 0);
 		vForward.addChangeListener(this);
@@ -73,9 +76,12 @@ public class ThymioPanel extends JPanel implements ChangeListener, KeyListener, 
 		this.add(theta);
 		this.add(new JLabel("Forward Speed:"));
 		this.add(vForward);
-		this.add(stop);
-		this.add(leftTurn);
-		this.add(rightTurn);
+		
+		buttonPanel.add(stop);
+		buttonPanel.add(leftTurn);
+		buttonPanel.add(rightTurn);
+		
+		this.add(buttonPanel);
 	}
 
 	@Override
