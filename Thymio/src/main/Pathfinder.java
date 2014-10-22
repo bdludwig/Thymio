@@ -22,7 +22,7 @@ public class Pathfinder {
 	 */
 	private final int HEIGHT = 20;
 	private final int WIDTH = 8;
-	private final int OBSTACLE_COUNT = 10;
+	private final int OBSTACLE_COUNT = 20;
 
 	private final int START = HEIGHT * WIDTH - WIDTH;
 	private final int GOAL = WIDTH - 1;
@@ -201,8 +201,30 @@ public class Pathfinder {
 	}
 	
 	public int[] getPathsForThymio(){
-			System.out.println(thymioNodes[0].length);
-			System.out.println(thymioNodes.length);
+		int count = 0;
+		ArrayList<String> thymioPathList = new ArrayList<String>();
+			for(int i = 19; i >= 0; i--){
+				for(int k = 0; k < thymioNodes[i].length; k++){
+					if(thymioNodes[i][k] == 1){
+						thymioNodes[i][k] = 2;
+						count++;
+					}
+				}
+				if(count == 1){
+					thymioPathList.add("forward");
+					count = 0; 
+				}
+				if(count > 1){
+					thymioPathList.add("right");
+					for(int y = 0; y < count-1; y++){
+						thymioPathList.add("forward");
+					}
+					thymioPathList.add("left");
+					thymioPathList.add("forward");
+					count = 0; 
+				}
+			}
+			System.out.println(thymioPathList);
 		return null;
 		//TODO!!!
 	}
