@@ -23,9 +23,6 @@ public class ThymioInterface extends JFrame {
 
 		myPanel = new ThymioPanel(c, this);
 		this.setContentPane(myPanel);
-		
-		this.setMinimumSize(new Dimension(400, 400));
-		this.setMaximumSize(new Dimension(400, 400));
 		this.pack();
 		this.setVisible(true);
 	}

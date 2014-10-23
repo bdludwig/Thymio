@@ -42,8 +42,8 @@ public class MapElement {
 		this.occupied = occupied;
 	}
 	
-	public void setOccupied() {
-		occupied = true;
+	public void setOccupied(boolean occ) {
+		occupied = occ;
 	}
 
 	public boolean onBeam() {

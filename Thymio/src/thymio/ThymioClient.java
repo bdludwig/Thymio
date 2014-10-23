@@ -36,7 +36,7 @@ public class ThymioClient {
     }
     
 	private void connect() throws IOException {
-		conn = new Socket("192.168.43.149", 6789);
+		conn = new Socket("192.168.43.122", 6789);
 
 		printWriter =
 				new PrintWriter(

@@ -310,6 +310,10 @@ public class Map {
 		return element[x][y].onBeam();
 	}
 	
+	public boolean isOccupied(int x, int y) {
+		return element[x][y].isOccupied();
+	}
+	
 	public void setProxHorizontal(List<Short> val) {
 		for (int i = 0; i < val.size(); i++) {
 			infraredDist[i] = proxHorSensor.computeDistance(val.get(i).doubleValue());
