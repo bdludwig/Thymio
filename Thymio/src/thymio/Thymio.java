@@ -29,11 +29,11 @@ public class Thymio {
 	public static final double SPEEDCOEFF = 2.93;
 	public static final double BASE_WIDTH = 95;
 	
-	public Thymio(MapPanel p) {
+	public Thymio(MapPanel p, String host) {
 		vleft = vright = 0;
 		
 		myPanel = p;
-		myClient = new ThymioClient();
+		myClient = new ThymioClient(host);
 		myInterface = new ThymioInterface(this);
 		myControlThread = new ThymioDrivingThread(this);
 		myControlThread.start();

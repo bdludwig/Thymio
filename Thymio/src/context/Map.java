@@ -335,21 +335,21 @@ public class Map {
 	}
 	
 	private double [] computeSensorProb(int sensorid, double posX, double posY, double angle, Graphics g, int height) {
-		AffineTransform tmp;
+		//AffineTransform tmp;
 		double sensorx = posX + 7.25*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM*Math.cos(angle+estTheta);
 		double sensory = posY + 7.25*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM*Math.sin(angle+estTheta);		
 
-		tmp = ((Graphics2D)g).getTransform();
+		//tmp = ((Graphics2D)g).getTransform();
 		
 		sensorRotation[sensorid] = new AffineTransform();
 		sensorRotation[sensorid].translate(sensorx, height - sensory);
 		sensorRotation[sensorid].rotate(angle + Math.PI/2);
-
+/*
 		((Graphics2D)g).transform(sensorRotation[sensorid]);
 		
 		g.setColor(Color.MAGENTA);
 		((Graphics2D)g).fill(sensorbox);
-		
+	*/	
 		Path2D sensingArea = (Path2D)sensorRotation[sensorid].createTransformedShape(sensorbox);
 		Rectangle2D transformedbox = sensingArea.getBounds2D();
 		int lowerx = (int)transformedbox.getMinX();
@@ -381,7 +381,7 @@ public class Map {
 		probDist[0] = white/n;
 		probDist[1] = black/n;
 		
-		((Graphics2D)g).setTransform(tmp);
+		//((Graphics2D)g).setTransform(tmp);
 
 		return probDist;
 	}
@@ -393,6 +393,7 @@ public class Map {
 	public Rectangle2D getSensorBoundings() {
 		return sensorbox;
 	}
+	
 	public double computeSensorProb(double x, double y, double dtheta, int val1, double angle1, int val2, double angle2, Graphics g, int height) {
 		double [] sensorValDist;
 		double sensorProb;

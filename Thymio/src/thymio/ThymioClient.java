@@ -10,13 +10,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ThymioClient {
+	public static final int PORT = 6789;
 	private Socket conn;
 	private PrintWriter printWriter;
 	private BufferedReader bufferedReader;
 	
-	public ThymioClient() {
+	public ThymioClient(String host) {
 		try {
-			connect();
+			connect(host);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -35,8 +36,8 @@ public class ThymioClient {
 		return message;
     }
     
-	private void connect() throws IOException {
-		conn = new Socket("192.168.43.122", 6789);
+	private void connect(String host) throws IOException {
+		conn = new Socket(host, ThymioClient.PORT);
 
 		printWriter =
 				new PrintWriter(
@@ -120,40 +121,6 @@ public class ThymioClient {
 
 			notify();
 			return res;
-		}
-	}
-
-	public static void main(String [] args) {
-		try {
-			ThymioClient t = new ThymioClient();
-			List<Short> res;
-			int count;
-			
-			ArrayList<Short> val = new ArrayList<>();
-			val.clear();
-			val.add(new Short((short) 200));
-			t.setVariable("motor.left.target", val);
-			t.setVariable("motor.right.target", val);
-			
-			count = 0;
-			while (count < 10) {
-				Thread.sleep(250);
-				res = t.getVariable("motor.left.speed");
-				if (res != null) {
-					for (int i = 0; i < res.size(); i++) System.out.print(res.get(i) + " ");
-					System.out.print("\n");
-				}
-				
-				count ++;
-			}
-			
-			val.clear();
-			val.add(new Short((short) 0));
-			t.setVariable("motor.left.target", val);
-			t.setVariable("motor.right.target", val);			
-		}
-		catch(Exception e) {
-			System.out.println("connection failure: " + e);
 		}
 	}
 }
