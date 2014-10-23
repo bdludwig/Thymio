@@ -3,10 +3,7 @@ package context;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.Rectangle;
-import java.awt.Shape;
 import java.awt.geom.AffineTransform;
-import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
@@ -15,10 +12,9 @@ import java.util.Random;
 
 import math.KalmanFilter;
 import math.SensorModel;
+import observer.MapPanel;
 
 import org.ejml.data.DenseMatrix64F;
-
-import observer.MapPanel;
 
 public class Map {
 	private int sizeX, sizeY; // number of elements in each direction 
@@ -34,6 +30,12 @@ public class Map {
 	private MapElement [][] element; // Array of MapElement representing the environment
 	private double edgelength; // each element in this maps covers edgelength^2 square units.
 	
+	private AffineTransform [] sensorRotation;
+	private Rectangle2D sensorbox = new Rectangle2D.Double(-0.5*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM,
+			                                               -0.25*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM,
+			                                               MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM,
+			                                               0.5*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM);
+
 	public static final int N = 20; // number of occupied elements
 	
 	private KalmanFilter posEstimate;
@@ -53,6 +55,7 @@ public class Map {
 		initFilter();
 		
 		ArrayList<Double> proxHorCoeffs = new ArrayList<Double>();
+		sensorRotation = new AffineTransform[2];
 		
 		// see exercise 5.
 		
@@ -147,7 +150,6 @@ public class Map {
 	
 	public void updatePose(double dF, double dR, double dFobs, double dRobs, double dt) {
 		double [] delta = new double[4];
-		double lastEstX = estPosX, lastEstY = estPosY;
 		
 		delta[0] = Math.cos(estTheta)*dF;
 		delta[1] = Math.sin(estTheta)*dF;
@@ -170,7 +172,6 @@ public class Map {
 		// sensor values
 		
 		double [] speed = {dFobs/dt, dRobs/dt};
-		double dist;
 		//double [] speed = {dF/dt, dR/dt};
 		
 		posEstimate.predict(Gu);
@@ -333,24 +334,23 @@ public class Map {
 		}
 	}
 	
-	private double [] computeSensorProb(double posX, double posY, double angle, Graphics g, int height) {
-		AffineTransform tmp, rot;
+	private double [] computeSensorProb(int sensorid, double posX, double posY, double angle, Graphics g, int height) {
+		AffineTransform tmp;
 		double sensorx = posX + 7.25*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM*Math.cos(angle+estTheta);
 		double sensory = posY + 7.25*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM*Math.sin(angle+estTheta);		
-		Rectangle2D sensorbox = new Rectangle2D.Double(-0.5*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM, -0.25*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM, MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM, 0.5*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM);
 
 		tmp = ((Graphics2D)g).getTransform();
 		
-		rot = new AffineTransform();
-		rot.translate(sensorx, height - sensory);
-		rot.rotate(angle + Math.PI/2);
+		sensorRotation[sensorid] = new AffineTransform();
+		sensorRotation[sensorid].translate(sensorx, height - sensory);
+		sensorRotation[sensorid].rotate(angle + Math.PI/2);
 
-		((Graphics2D)g).transform(rot);
+		((Graphics2D)g).transform(sensorRotation[sensorid]);
 		
 		g.setColor(Color.MAGENTA);
 		((Graphics2D)g).fill(sensorbox);
 		
-		Path2D sensingArea = (Path2D)rot.createTransformedShape(sensorbox);
+		Path2D sensingArea = (Path2D)sensorRotation[sensorid].createTransformedShape(sensorbox);
 		Rectangle2D transformedbox = sensingArea.getBounds2D();
 		int lowerx = (int)transformedbox.getMinX();
 		int upperx = (int)transformedbox.getMaxX();
@@ -386,12 +386,19 @@ public class Map {
 		return probDist;
 	}
 	
+	public AffineTransform getSensorRotation(int sensorid) {
+		return sensorRotation[sensorid];
+	}
+	
+	public Rectangle2D getSensorBoundings() {
+		return sensorbox;
+	}
 	public double computeSensorProb(double x, double y, double dtheta, int val1, double angle1, int val2, double angle2, Graphics g, int height) {
 		double [] sensorValDist;
 		double sensorProb;
 		
 		System.out.println("computing a posteriori for: " + posX + "/" + posY);
-		sensorValDist = computeSensorProb(x, y, dtheta + angle1, g, height);
+		sensorValDist = computeSensorProb(0, x, y, dtheta + angle1, g, height);
 		if (val1 > 300) {
 			// light color
 			
@@ -405,7 +412,7 @@ public class Map {
 			System.out.println("prob sensor 1 for " + val1 + ": " + sensorProb + "|" + sensorValDist[0] + "," + sensorValDist[1]);
 		}
 
-		sensorValDist = computeSensorProb(x, y, dtheta + angle2, g, height);
+		sensorValDist = computeSensorProb(1, x, y, dtheta + angle2, g, height);
 		if (val2 > 300) {
 			// light color
 			

@@ -27,7 +27,7 @@ public class MapPanel extends JPanel {
 	
 	private double poseStdX, poseStdY;
 	private Ellipse2D.Double poseUncertainty;
-	private AffineTransform standardTransf, poseTransform;
+	private AffineTransform standardTransf, poseTransform, sensorRot0, sensorRot1;
 	
 	public MapPanel(Map m, JFrame f) {
 		myMap = m;
@@ -85,7 +85,9 @@ public class MapPanel extends JPanel {
 						bestY = this.getHeight() - y;
 						bestTheta = dtheta;
 						maxProb = p;
-
+						sensorRot0 = myMap.getSensorRotation(0);
+						sensorRot1 = myMap.getSensorRotation(1);
+						
 						System.out.println("new best position: (" + bestX + "," + bestY + "): " + maxProb);
 					}
 				}
