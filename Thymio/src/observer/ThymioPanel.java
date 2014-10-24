@@ -25,7 +25,7 @@ public class ThymioPanel extends JPanel implements ChangeListener, KeyListener, 
 	private ThymioInterface myUI;
 	private JSlider vForward, theta;
 	private JLabel valVelocity, valTheta;
-	private JButton stop, leftTurn, rightTurn;
+	private JButton stop, leftTurn, rightTurn, ahead, back;
 	
 	public ThymioPanel(Thymio t, ThymioInterface ui) {
 		myThymio = t;
@@ -65,10 +65,14 @@ public class ThymioPanel extends JPanel implements ChangeListener, KeyListener, 
 		valTheta = new JLabel("turn angle (degree): " + theta.getValue());
 		stop = new JButton("STOP");
 		stop.addActionListener(this);
-		leftTurn = new JButton("LEFT TURN");
+		leftTurn = new JButton("LEFT");
 		leftTurn.addActionListener(this);
-		rightTurn = new JButton("RIGHT TURN");
+		rightTurn = new JButton("RIGHT");
 		rightTurn.addActionListener(this);
+		ahead = new JButton("FIELD AHEAD");
+		ahead.addActionListener(this);
+		back = new JButton("FIELD BACK");
+		back.addActionListener(this);
 		
 		this.add(valVelocity);
 		this.add(valTheta);
@@ -80,6 +84,8 @@ public class ThymioPanel extends JPanel implements ChangeListener, KeyListener, 
 		buttonPanel.add(stop);
 		buttonPanel.add(leftTurn);
 		buttonPanel.add(rightTurn);
+		buttonPanel.add(ahead);
+		buttonPanel.add(back);
 		
 		this.add(buttonPanel);
 	}
@@ -165,6 +171,16 @@ public class ThymioPanel extends JPanel implements ChangeListener, KeyListener, 
 		this.repaint();
 	}
 
+	public void setRotationSpeed(int s) {
+		theta.setValue(s);
+		this.repaint();
+	}
+	
+	public void setForwardSpeed(int s) {
+		vForward.setValue(s);
+		this.repaint();
+	}
+	
 	@Override
 	public void keyReleased(KeyEvent e) {
 	}
@@ -183,15 +199,17 @@ public class ThymioPanel extends JPanel implements ChangeListener, KeyListener, 
 		}
 		else if (e.getSource() == leftTurn) {
 			myThymio.rotate(-90);
-			theta.setValue(0);
-			vForward.setValue(0);
 		}
 		else if (e.getSource() == rightTurn) {
 			myThymio.rotate(90);
-			theta.setValue(0);
-			vForward.setValue(0);
 		}
-
+		else if (e.getSource() == ahead) {
+			myThymio.drive(16.5);
+		}
+		else if (e.getSource() == back) {
+			myThymio.drive(-16.5);
+		}
+		
 		if(!this.isFocusOwner()) this.requestFocus();
 	}
 }

@@ -28,6 +28,7 @@ public class MapPanel extends JPanel {
 	private double poseStdX, poseStdY;
 	private Ellipse2D.Double poseUncertainty;
 	private AffineTransform standardTransf, poseTransform, sensorRot0, sensorRot1;
+	private double lastMaxProb;
 	
 	public MapPanel(Map m, JFrame f) {
 		myMap = m;
@@ -39,7 +40,8 @@ public class MapPanel extends JPanel {
 		poseStdX = poseStdY = 0;
 		poseTransform = null;
 		sensorRot0 = null;
-		sensorRot1 = null;		
+		sensorRot1 = null;
+		lastMaxProb = Double.NaN;
 	}
 	
 	public void setPose(double x, double y, double theta) {
@@ -61,17 +63,14 @@ public class MapPanel extends JPanel {
 		double bestX = Double.NaN, bestY = Double.NaN, bestTheta = Double.NaN;
 		boolean updated;
 		
-		poseStdX = Math.sqrt(myMap.getCovariance(0, 0))/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE;
-	    poseStdY = Math.sqrt(myMap.getCovariance(1, 1))/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE;
+		poseStdX = 3*Math.sqrt(myMap.getCovariance(0, 0))/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE;
+	    poseStdY = 3*Math.sqrt(myMap.getCovariance(1, 1))/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE;
 	    
 		poseTransform = new AffineTransform();
 		poseTransform.translate(myMap.getEstimPosX()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE,
 				                this.getHeight() - myMap.getEstimPosY()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE);
 		poseTransform.rotate(myMap.getEstimOrientation()+Math.PI/2);
 		poseUncertainty = new Ellipse2D.Double(-0.5*poseStdX, -0.5*poseStdY, poseStdX, poseStdY);
-		
-		((Graphics2D)this.getGraphics()).setTransform(poseTransform);
-		((Graphics2D)this.getGraphics()).fill(poseUncertainty);
 		
 		uncertaintyBounds = poseTransform.createTransformedShape(poseUncertainty).getBounds2D();
 		
@@ -86,37 +85,45 @@ public class MapPanel extends JPanel {
 		sensorRot0 = myMap.getSensorRotation(0);
 		sensorRot1 = myMap.getSensorRotation(1);
 
-		updated = false;
-		
-		for (double dtheta = -0.5*rotStd; dtheta <= 0.5*rotStd; dtheta += Math.PI/360) {
-			for (double x = uncertaintyBounds.getMinX(); x <= uncertaintyBounds.getMaxX(); x ++) {
-				for (double y = uncertaintyBounds.getMinY(); y <= uncertaintyBounds.getMinY(); y ++) {
-					double p =  myMap.computeSensorProb(x, (double)this.getHeight() - y, dtheta, sensorVal.get(0), 0.155802, sensorVal.get(1), -0.155802, this.getGraphics(), this.getHeight());
+		System.out.println("Correct: " + (maxProb > 0) + " in " + uncertaintyBounds);
+		if (maxProb > 0) {
+			System.out.println("try to correct");
+			updated = false;
+			maxProb = Double.POSITIVE_INFINITY;
 
-					System.out.println(myMap.getEstimPosX() + "/" + myMap.getEstimPosY() + "|" + x + "/" + y);
-					if (p > maxProb) {
-						// update pose if it can better explain the sensor values.
-						
-						updated = true;
-						bestX = x;
-						bestY = this.getHeight() - y;
-						bestTheta = dtheta;
-						maxProb = p;
-						sensorRot0 = myMap.getSensorRotation(0);
-						sensorRot1 = myMap.getSensorRotation(1);
-						
-						System.out.println("new best position: (" + bestX + "," + bestY + "): " + maxProb);
+			for (double dtheta = -0*3.363389*Math.PI/180; dtheta <= 0*3.363389*Math.PI/180; dtheta += Math.PI/360) {
+				for (double x = uncertaintyBounds.getMinX(); x <= uncertaintyBounds.getMaxX(); x ++) {
+					for (double y = uncertaintyBounds.getMinY(); y <= uncertaintyBounds.getMaxY(); y ++) {
+						if (uncertaintyBounds.contains(x, y)) {
+							double p =  myMap.computeSensorProb(x, (double)this.getHeight() - y, dtheta,
+									                            sensorVal.get(0), 0.155802,
+									                            sensorVal.get(1), -0.155802,
+									                            this.getGraphics(), this.getHeight());
+							double apriori = myMap.posProbability(x, (double)this.getHeight() - y) +
+									         myMap.rotationProbability(dtheta);
+							//System.out.println("p: " + p + " - apriori pos: " + myMap.posProbability(x, y) + " - apriori rot: " + myMap.rotationProbabilty(dtheta));
+
+							if ((p + apriori) < maxProb) {
+								// update pose if it can better explain the sensor values.
+
+								updated = true;
+								bestX = x;
+								bestY = this.getHeight() - y;
+								bestTheta = dtheta + myMap.getEstimOrientation();
+								maxProb = p + apriori;
+								sensorRot0 = myMap.getSensorRotation(0);
+								sensorRot1 = myMap.getSensorRotation(1);
+							}
+						}
 					}
 				}
 			}
-		}
-		
-		if (updated) {
-			System.out.println("new pose: " + (bestX*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE) + "/" + (bestY*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE) + "/" + bestTheta);
-			myMap.setPose(bestX*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE, bestY*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE, bestTheta);			
-		}
 
-		((Graphics2D)this.getGraphics()).setTransform(standardTransf);
+			if (updated) {
+				System.out.println("new best position: (" + bestX + "," + bestY + "," + bestTheta + "):  apriori pos: " + myMap.posProbability(bestX, bestY) + " - apriori rot: " + myMap.rotationProbability(bestTheta));
+				myMap.setPose(bestX*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE, bestY*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE, bestTheta);			
+			}
+		}
 	}
 	
 	public void paint(Graphics g) {
