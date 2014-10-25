@@ -5,6 +5,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.util.ArrayList;
 
 import javax.swing.JButton;
 import javax.swing.JLabel;
@@ -14,6 +15,7 @@ import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.BoxLayout;
 
+import main.Pathfinder;
 import thymio.Thymio;
 
 public class ThymioPanel extends JPanel implements ChangeListener, KeyListener, ActionListener {
@@ -25,7 +27,7 @@ public class ThymioPanel extends JPanel implements ChangeListener, KeyListener, 
 	private ThymioInterface myUI;
 	private JSlider vForward, theta;
 	private JLabel valVelocity, valTheta;
-	private JButton stop, leftTurn, rightTurn, ahead, back;
+	private JButton stop, leftTurn, rightTurn, ahead, back, astern;
 	
 	public ThymioPanel(Thymio t, ThymioInterface ui) {
 		myThymio = t;
@@ -74,6 +76,11 @@ public class ThymioPanel extends JPanel implements ChangeListener, KeyListener, 
 		back = new JButton("FIELD BACK");
 		back.addActionListener(this);
 		
+		//Button for running Thymio with A*
+		astern = new JButton("A* Start");
+		astern.addActionListener(this);
+		
+		
 		this.add(valVelocity);
 		this.add(valTheta);
 		this.add(new JLabel("Rotation Speed:"));
@@ -86,6 +93,8 @@ public class ThymioPanel extends JPanel implements ChangeListener, KeyListener, 
 		buttonPanel.add(rightTurn);
 		buttonPanel.add(ahead);
 		buttonPanel.add(back);
+		buttonPanel.add(astern);
+		
 		
 		this.add(buttonPanel);
 	}
@@ -209,7 +218,27 @@ public class ThymioPanel extends JPanel implements ChangeListener, KeyListener, 
 		else if (e.getSource() == back) {
 			myThymio.drive(-16.5);
 		}
+		else if(e.getSource() == astern){
+			driveAstarPath();
+		}
 		
 		if(!this.isFocusOwner()) this.requestFocus();
+	}
+	
+	
+	public void driveAstarPath(){
+		Pathfinder myPath = new Pathfinder();
+		ArrayList<Integer> paths = myPath.getPathsForThymio();
+		
+		
+		//Wird noch nicht funktionieren - wait Thread nötig?
+		for(int i = 0; i < paths.size(); i++){
+			switch(paths.get(i)){
+			case 1: myThymio.drive(16.5);
+			case 0: myThymio.drive(-16.5);
+			case 2: myThymio.rotate(90);
+			case 3: myThymio.rotate(-90);
+			}
+		}
 	}
 }
