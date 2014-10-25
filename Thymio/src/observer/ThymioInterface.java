@@ -34,4 +34,11 @@ public class ThymioInterface extends JFrame {
 	public int getVForward() {
 		return myPanel.getVForward();
 	}
+	
+	public void setRotationSpeed(double s) {
+		myPanel.setRotationSpeed((int)s);
+	}	
+	public void setForwardSpeed(double s) {
+		myPanel.setForwardSpeed((int)s);
+	}
 }

@@ -334,22 +334,31 @@ public class Map {
 		}
 	}
 	
+	public double rotationProbability(double angle) {
+		double dist = angle - getEstimOrientation();
+		
+		return dist*dist/11.31239;
+	}
+	
+	public double posProbability(double x, double y) {
+		double distPredX = x*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE - getEstimPosX();
+		double distPredY = y*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE - getEstimPosY();
+		
+		System.out.println("dist X:" + distPredX + "/dist Y:" + distPredY);
+		return getCovariance(0,0)*distPredX*distPredX +
+				 2*getCovariance(0,1)*distPredX*distPredY +
+				 getCovariance(1,1)*distPredY*distPredY;
+	}
+	
 	private double [] computeSensorProb(int sensorid, double posX, double posY, double angle, Graphics g, int height) {
-		AffineTransform tmp;
+		//AffineTransform tmp;
 		double sensorx = posX + 7.25*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM*Math.cos(angle+estTheta);
 		double sensory = posY + 7.25*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM*Math.sin(angle+estTheta);		
-
-		tmp = ((Graphics2D)g).getTransform();
 		
 		sensorRotation[sensorid] = new AffineTransform();
 		sensorRotation[sensorid].translate(sensorx, height - sensory);
-		sensorRotation[sensorid].rotate(angle + Math.PI/2);
+		sensorRotation[sensorid].rotate(estTheta + angle + Math.PI/2);
 
-		((Graphics2D)g).transform(sensorRotation[sensorid]);
-		
-		g.setColor(Color.MAGENTA);
-		((Graphics2D)g).fill(sensorbox);
-		
 		Path2D sensingArea = (Path2D)sensorRotation[sensorid].createTransformedShape(sensorbox);
 		Rectangle2D transformedbox = sensingArea.getBounds2D();
 		int lowerx = (int)transformedbox.getMinX();
@@ -381,7 +390,7 @@ public class Map {
 		probDist[0] = white/n;
 		probDist[1] = black/n;
 		
-		((Graphics2D)g).setTransform(tmp);
+		//((Graphics2D)g).setTransform(tmp);
 
 		return probDist;
 	}
@@ -393,23 +402,24 @@ public class Map {
 	public Rectangle2D getSensorBoundings() {
 		return sensorbox;
 	}
+	
 	public double computeSensorProb(double x, double y, double dtheta, int val1, double angle1, int val2, double angle2, Graphics g, int height) {
 		double [] sensorValDist;
 		double sensorProb;
 		
-		System.out.println("computing a posteriori for: " + posX + "/" + posY);
+		// System.out.println("computing a posteriori for: " + posX + "/" + posY);
 		sensorValDist = computeSensorProb(0, x, y, dtheta + angle1, g, height);
 		if (val1 > 300) {
 			// light color
 			
 			sensorProb = sensorValDist[0];
-			System.out.println("prob sensor 1 for " + val1 + ": " + sensorProb + "|" + sensorValDist[0] + "," + sensorValDist[1]);
+			System.out.println((int)x + "/" + (int)y + ": prob sensor 1 for " + val1 + ": " + sensorProb + "|" + sensorValDist[0] + "," + sensorValDist[1]);
 		}
 		else {
 			// dark color
 			
 			sensorProb = sensorValDist[1];
-			System.out.println("prob sensor 1 for " + val1 + ": " + sensorProb + "|" + sensorValDist[0] + "," + sensorValDist[1]);
+			System.out.println((int)x + "/" +(int) y + ": prob sensor 1 for " + val1 + ": " + sensorProb + "|" + sensorValDist[0] + "," + sensorValDist[1]);
 		}
 
 		sensorValDist = computeSensorProb(1, x, y, dtheta + angle2, g, height);
@@ -417,15 +427,19 @@ public class Map {
 			// light color
 			
 			sensorProb *= sensorValDist[0];
-			System.out.println("prob sensor 2 for " + val1 + ": " + sensorProb + "|" + sensorValDist[0] + "," + sensorValDist[1]);
+			System.out.println((int)x + "/" + (int)y + ": prob sensor 2 for " + val1 + ": " + sensorValDist[0] + "|" + sensorValDist[0] + "," + sensorValDist[1]);
 		}
 		else {
 			// dark color
 			
 			sensorProb *= sensorValDist[1];
-			System.out.println("prob sensor 2 for " + val1 + ": " + sensorProb + "|" + sensorValDist[0] + "," + sensorValDist[1]);
+			System.out.println((int)x + "/" + (int)y + ": prob sensor 2 for " + val2 + ": " + sensorValDist[1] + "|" + sensorValDist[0] + "," + sensorValDist[1]);
 		}
 		
-		return sensorProb;
+		if (sensorProb == 0) {
+			System.out.println("definitly wrong.");
+			return Double.POSITIVE_INFINITY;
+		}
+		else return -Math.log(sensorProb);
 	}
 }

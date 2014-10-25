@@ -28,12 +28,14 @@ public class Thymio {
 	public static final double MAXSPEED = 500;
 	public static final double SPEEDCOEFF = 2.93;
 	public static final double BASE_WIDTH = 95;
+	public static final double VROTATION = 100;
+	public static final double STRAIGHTON = 150;
 	
-	public Thymio(MapPanel p) {
+	public Thymio(MapPanel p, String host) {
 		vleft = vright = 0;
 		
 		myPanel = p;
-		myClient = new ThymioClient();
+		myClient = new ThymioClient(host);
 		myInterface = new ThymioInterface(this);
 		myControlThread = new ThymioDrivingThread(this);
 		myControlThread.start();
@@ -96,52 +98,39 @@ public class Thymio {
 		return vright;
 	}
 
-	public synchronized void rotate(double deg) {
-		double odomRotation = 0;
-		double odomForward;
-		double dt;
-		short odomLeft, odomRight;
-		List<Short> sensorData;
+	public synchronized void drive(double distCM) {
+		try {
+			double dt;
+			
+			if (distCM > 0) dt = 3/14.03541*distCM;
+			else dt = -3/14.81564*distCM;
+			
+			this.wait();
+			this.setSpeed((short)(0), (short)(0));
+						
+			this.wait();
+			this.setSpeed((short)(Math.signum(distCM)*STRAIGHTON), (short)(Math.signum(distCM)*STRAIGHTON));
+			new ThymioStopThread(this, (long)(dt*1000)).start();
 
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	public synchronized void rotate(double deg) {
+		double dt;
+		
 		try {
 			this.wait();
 			this.setSpeed((short)(0), (short)(0));
 
-			dt = (Math.abs(deg)-1.09)/(0.36*100); // secs needed for rotation
+			dt = (Math.abs(deg)-1.09)/(0.36*VROTATION); // secs needed for rotation
 			
 			this.wait();
-			this.setSpeed((short)(Math.signum(deg)*100), (short)(-Math.signum(deg)*100));
-
-			Thread.sleep((int)(dt*1000));
-				
-			odomLeft = Short.MIN_VALUE;
-			odomRight = Short.MIN_VALUE;
-
-			sensorData = myClient.getVariable("motor.left.speed");
-			if (sensorData != null) odomLeft = sensorData.get(0);
-			else System.out.println("no data for motor.left.speed");
-			sensorData = myClient.getVariable("motor.right.speed");
-			if (sensorData != null) odomRight = sensorData.get(0);
-			else System.out.println("no data for motor.right.speed");
-
-			if (odomLeft != Short.MIN_VALUE && odomRight!= Short.MIN_VALUE) {
-				double ol, or;
-				
-				odomLeftMean.addValue(odomLeft);
-				odomRightMean.addValue(odomRight);
-				
-				ol = odomLeftMean.getMean();
-				or = odomRightMean.getMean();
-				
-				odomRotation = Math.atan2(dt*(or-ol), BASE_WIDTH);
-				odomForward = dt*(ol+or)/(2.0*10.0*SPEEDCOEFF);
-				myPanel.updatePose(0, Math.atan2(dt*(-2*Math.signum(deg)*100), BASE_WIDTH),
-						           odomForward, odomRotation,
-						           dt);
-			}
-
-			this.wait();
-			this.setSpeed((short)(0), (short)(0));
+			this.setSpeed((short)(Math.signum(deg)*VROTATION), (short)(-Math.signum(deg)*VROTATION));
+			System.out.println(Math.signum(deg)*VROTATION*360/(Math.PI*BASE_WIDTH*SPEEDCOEFF) + "/" + dt);
+			new ThymioStopThread(this, (long)(dt*1000)).start();
 		} catch (InterruptedException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
@@ -184,18 +173,18 @@ public class Thymio {
 
 			odomForward = secsElapsed*(ol+or)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds.
 			//odomRotation = Math.atan2(secsElapsed*(odomRight-odomLeft), BASE_WIDTH);
-			odomRotation = Math.atan2(secsElapsed*(or-ol), BASE_WIDTH);
+			odomRotation = Math.atan2(secsElapsed*(or-ol)/SPEEDCOEFF, BASE_WIDTH);
 
-			distForward = myInterface.getVForward()*secsElapsed;
-			distRotation = Math.atan2(secsElapsed*(vright-vleft), BASE_WIDTH);
+			distForward = (vleft+vright)/(2.0*10.0*SPEEDCOEFF)*secsElapsed;
+			distRotation = Math.atan2(secsElapsed*(vright-vleft)/SPEEDCOEFF, BASE_WIDTH);
 
 			logData.print(odomForward + "\t" + distForward + "\t" + odomRotation + "\t" + distRotation + "\t");
 
-			if ((distRotation != 0) || (distForward != 0)) {
+			//if ((distRotation != 0) || (distForward != 0)) {
 				myPanel.updatePose(distForward, distRotation,
-						(distForward != 0 ? odomForward : 0), odomRotation,
+						(distForward != 0 ? odomForward : 0), (distRotation != 0 ? odomRotation : 0),
 						secsElapsed);
-			}
+			//}
 			/*
 				else {
 					myPanel.updatePose(distForward, distRotation,
@@ -224,8 +213,10 @@ public class Thymio {
 			logData.print("\n");
 			logData.flush();
 
+			
 			myPanel.updatePoseGround(sensorData,
-					                 Math.atan2(secsElapsed*(or+odomRightMean.getStd()-ol-odomLeftMean.getStd()), BASE_WIDTH));
+					                 Math.atan2(secsElapsed*(or+odomRightMean.getStd()-ol-odomLeftMean.getStd())/SPEEDCOEFF, BASE_WIDTH));
+					                 
 			myPanel.repaint();
 		}
 
