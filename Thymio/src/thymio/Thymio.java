@@ -228,6 +228,7 @@ public class Thymio {
 		Pathfinder myPath = new Pathfinder(myPanel.getMap());
 		ArrayList<Integer> paths = myPath.getPathsForThymio();
 		
+		System.out.println(paths);
 		//Wird noch nicht funktionieren - wait Thread noetig?
 		
 		for(int i = 0; i < paths.size(); i++){
