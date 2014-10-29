@@ -43,7 +43,11 @@ public class MapPanel extends JPanel {
 		sensorRot1 = null;
 		lastMaxProb = Double.NaN;
 	}
-	
+
+	public Map getMap() {
+		return myMap;
+	}
+
 	public void setPose(double x, double y, double theta) {
 		myMap.setPose(x, y, theta);
 		this.repaint();

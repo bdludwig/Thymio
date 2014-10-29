@@ -1,10 +1,10 @@
 package context;
 
 import java.awt.Color;
+import java.util.ArrayList;
 
 public class MapElement {
-	private int posX;				// position in the map
-	private int posY;
+	private Coordinate pos;			// position in the map
 	
 	private boolean occupied; 		// element is known in advance to be occupied
 	private double probOccupied;	// estimation of the state of this element
@@ -12,13 +12,25 @@ public class MapElement {
 	
 	private boolean onBeam;			// set temporarily if the element is hit by infrared beam
 	private Color myColor;
+
+	private MapElement predecessor;
+
+	private char content;
+
+	private double distToGoal;
+
+	private double distFromStart;
+
+	private ArrayList<MapElement> linkMapElements;
+
+	private int id;
 	
 	public int getPosX() {
-		return posX;
+		return pos.getX();
 	}
 	
 	public int getPosY() {
-		return posY;
+		return pos.getY();
 	}
 	
 	public boolean isOccupied() {
@@ -29,16 +41,20 @@ public class MapElement {
 		return probOccupied;
 	}
 	
-	public MapElement(int posX, int posY) {
-		super();
-		this.posX = posX;
-		this.posY = posY;
+	public Coordinate getCoordinate() {
+		return pos;
 	}
 	
-	public MapElement(int posX, int posY, boolean occupied) {
+	public MapElement(int id, int posX, int posY) {
 		super();
-		this.posX = posX;
-		this.posY = posY;
+		this.id = id;
+		pos = new Coordinate(posX, posY);
+	}
+	
+	public MapElement(int id, int posX, int posY, boolean occupied) {
+		super();
+		this.id = id;
+		pos = new Coordinate(posX, posY);
 		this.occupied = occupied;
 	}
 	
@@ -55,7 +71,7 @@ public class MapElement {
 	}
 	
 	public String toString() {
-		return "(" + posX + "/" + posY + ")";
+		return pos.toString() + ": " + (occupied ? "OCC" : "FREE");
 	}
 	
 	public void setColor(Color c) {
@@ -64,5 +80,64 @@ public class MapElement {
 	
 	public Color getColor() {
 		return myColor;
+	}
+	
+	public void setPredecessor(MapElement n) {
+		predecessor = n;
+	}
+
+	public MapElement getPredecessor() {
+		return predecessor;
+	}
+
+	public double getDistTo(MapElement nextMapElement) {
+		double dist = pos.getDistanceTo(predecessor,
+				nextMapElement.getCoordinate());
+		return dist;
+	}
+
+	public void setContent(char c) {
+		content = c;
+	}
+
+	public void setDist(MapElement start, MapElement goal) {
+		if (this != goal) {
+			distToGoal = getDistTo(goal);
+		}
+		if (this != start) {
+			distFromStart = getDistTo(start);
+		}
+	}
+
+	public double getDistFromStart() {
+		return distFromStart;
+	}
+
+	public void setDistFromStart(double d) {
+		distFromStart = d;
+	}
+
+	public double getF() {
+		return distToGoal + distFromStart;
+	}
+
+	public char getContent() {
+		return content;
+	}
+
+	public void setLinkNodes(ArrayList<MapElement> n) {
+		linkMapElements = n;
+	}
+
+	public ArrayList<MapElement> getLinkNodes() {
+		return linkMapElements;
+	}
+
+	public int getID() {
+		return id;
+	}
+
+	public double getDistToGoal() {
+		return distToGoal;
 	}
 }

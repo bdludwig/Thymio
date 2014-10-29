@@ -4,7 +4,8 @@ import java.io.ObjectInputStream.GetField;
 import java.util.ArrayList;
 
 import context.Coordinate;
-import context.Node;
+import context.Map;
+import context.MapElement;
 import context.OpenList;
 
 public class Pathfinder {
@@ -20,32 +21,52 @@ public class Pathfinder {
 	 * TODO Next step would be to integrate the Pathfinder in the Thymio environment.
 	 * Hope that's not that big of a deal ;)
 	 */
+
+	/* Map.java
 	private final int HEIGHT = 20;
 	private final int WIDTH = 8;
 	private final int OBSTACLE_COUNT = 20;
-	
+	*/
 	private final Integer BACKWARDS = 0;
 	private final Integer FORWARD = 1;
 	private final Integer RIGHT = 2;
 	private final Integer LEFT =3;
 
+	/* Map. java
 	private final int START = HEIGHT * WIDTH - WIDTH;
 	private final int GOAL = WIDTH - 1;
+	*/
+	
+	private MapElement startNode;
+	private MapElement goalNode;
 
-	private Node startNode;
-	private Node goalNode;
-
+	/* Map.java
 	private Node[] nodes = new Node[HEIGHT * WIDTH];
 	private int[][] thymioNodes = new int[HEIGHT][WIDTH];
-
+	 */
+	
 	private OpenList ol = new OpenList();
-	private ArrayList<Node> closedList = new ArrayList<Node>();
+	private ArrayList<MapElement> closedList = new ArrayList<MapElement>();
 	private ArrayList<String> thymioPath = new ArrayList<String>();
 
-	public Pathfinder() {
+	private Map myMap;
+	private int[][] thymioNodes;
+	
+	public Pathfinder(Map m) {
+		/* Map.java
 		populateMap();
+		*/
+		myMap = m;
+		thymioNodes = new int[myMap.getSizeX()][myMap.getSizeY()];
+		
+		startNode = m.getCurrentPos();
+		goalNode = m.getElement(myMap.getSizeX() - 1, myMap.getSizeY() - 1);
+		
 		setLinkNodes();
 	}
+
+	/*
+	 * obstacles are set by ExperimentPanel.java 
 
 	private int[] getRandomObstacles() {
 		int[] randoms = new int[OBSTACLE_COUNT];
@@ -62,6 +83,10 @@ public class Pathfinder {
 		}
 		return randoms;
 	}
+	*/
+
+	/*
+	 * moved to Map.java
 
 	private void populateMap() {
 		int[] obstacles = getRandomObstacles();
@@ -84,9 +109,10 @@ public class Pathfinder {
 			}
 		}
 	}
-
+	 */
+	
 	private void markPath() {
-		Node n = goalNode;
+		MapElement n = goalNode;
 		while (n.getPredecessor() != startNode) {
 			n.getPredecessor().setContent('x');
 			n = n.getPredecessor();
@@ -94,80 +120,79 @@ public class Pathfinder {
 	}
 
 	private void setLinkNodes() {
-		Node curNode;
-		Coordinate c;
-		ArrayList<Node> linkNodes;
-		int x, y;
-		for (int i = 0; i < nodes.length; i++) {
-			linkNodes = new ArrayList<Node>();
-			curNode = nodes[i];
-			c = curNode.getCoordinate();
-			x = c.getX();
-			y = c.getY();
-			// cut out upper row
-			if (x - 1 >= 0) {
-				// cut out left col
-				// if (y - 1 >= 0) {
-				// linkNodes.add(nodes[getNodeID(x - 1, y - 1)]);
-				// }
-				// // cut out right col
-				// if (y + 1 < WIDTH) {
-				// linkNodes.add(nodes[getNodeID(x - 1, y + 1)]);
-				// }
-				// always needed
-				linkNodes.add(nodes[getNodeID(x - 1, y)]);
+		MapElement curNode;
+		ArrayList<MapElement> linkNodes;
+
+		for (int x = 0; x < myMap.getSizeX(); x++) {
+			for (int y = 0; y < myMap.getSizeY(); y++) {
+				linkNodes = new ArrayList<MapElement>();
+				curNode = myMap.getElement(x, y);
+
+				// cut out upper row
+				if (x - 1 >= 0) {
+					// cut out left col
+					// if (y - 1 >= 0) {
+					// linkNodes.add(nodes[getNodeID(x - 1, y - 1)]);
+					// }
+					// // cut out right col
+					// if (y + 1 < WIDTH) {
+					// linkNodes.add(nodes[getNodeID(x - 1, y + 1)]);
+					// }
+					// always needed
+					linkNodes.add(myMap.getElement(x - 1, y)/*nodes[getNodeID(x - 1, y)]*/);
+				}
+				// cut out lower row
+				if (x + 1 < myMap.getSizeX()) {
+					// // cut out left col
+					// if (y - 1 >= 0) {
+					// linkNodes.add(nodes[getNodeID(x + 1, y - 1)]);
+					// }
+					// // cut out right col
+					// if (y + 1 < WIDTH) {
+					// linkNodes.add(nodes[getNodeID(x + 1, y + 1)]);
+					// }
+					// always needed
+					linkNodes.add(myMap.getElement(x + 1, y)/*nodes[getNodeID(x + 1, y)]*/);
+				}
+				// check left
+				if (y - 1 >= 0) {
+					linkNodes.add(myMap.getElement(x, y - 1)/*nodes[getNodeID(x, y - 1)]*/);
+				}
+				// check right
+				if (y + 1 < myMap.getSizeY()) {
+					linkNodes.add(myMap.getElement(x, y + 1)/*nodes[getNodeID(x, y + 1)]*/);
+				}
+				curNode.setLinkNodes(linkNodes);
+				curNode.setDist(startNode, goalNode);
 			}
-			// cut out lower row
-			if (x + 1 < HEIGHT) {
-				// // cut out left col
-				// if (y - 1 >= 0) {
-				// linkNodes.add(nodes[getNodeID(x + 1, y - 1)]);
-				// }
-				// // cut out right col
-				// if (y + 1 < WIDTH) {
-				// linkNodes.add(nodes[getNodeID(x + 1, y + 1)]);
-				// }
-				// always needed
-				linkNodes.add(nodes[getNodeID(x + 1, y)]);
-			}
-			// check left
-			if (y - 1 >= 0) {
-				linkNodes.add(nodes[getNodeID(x, y - 1)]);
-			}
-			// check right
-			if (y + 1 < WIDTH) {
-				linkNodes.add(nodes[getNodeID(x, y + 1)]);
-			}
-			curNode.setLinkNodes(linkNodes);
-			curNode.setDist(startNode, goalNode);
 		}
 	}
-
+	
+		/* Map.java
 	private int getNodeID(int x, int y) {
 		return x * WIDTH + y;
 	}
+	*/
 
 	private void printMap() {
-		int k = 0;
-		int j = 0;
-		for (int i = 0; i < nodes.length; i++) {
-			j = (i) % WIDTH;
-			System.out.print(nodes[i].getContent() + " ");
-			if(nodes[i].getContent() == '_' ||nodes[i].getContent() == 'O'){
-				thymioNodes[k][j] = 0;
-			}else{
-				thymioNodes[k][j] = 1;
-			}
-			if ((i + 1) % WIDTH == 0) {
-				System.out.print("\n");
-				k++;
+		for (int x = 0; x < myMap.getSizeX(); x++) {
+			for (int y = 0; y < myMap.getSizeY(); y++) {
+				MapElement e = myMap.getElement(x, y);
+
+				System.out.print(e.getContent() + " ");
+				if (e.getContent() == '_' || e.getContent() == 'O'){
+					thymioNodes[x][y] = 0;
+				}
+				else {
+					thymioNodes[x][y] = 1;
+				}
 			}
 		}
 	}
-
+	
 	public void findPath() {
 		ol.enqueue(startNode, 0);
-		Node curNode;
+		MapElement curNode;
 		while (!ol.isEmpty()) {
 			curNode = ol.removeMin();
 			if (curNode == goalNode) {
@@ -183,9 +208,9 @@ public class Pathfinder {
 		printMap();
 	}
 
-	private void expandNode(Node n) {
+	private void expandNode(MapElement n) {
 		double tentative_g;
-		for (Node nextNode : n.getLinkNodes()) {
+		for (MapElement nextNode : n.getLinkNodes()) {
 			if (closedList.contains(nextNode)) {
 				continue;
 			}
@@ -208,18 +233,19 @@ public class Pathfinder {
 	public ArrayList<Integer> getPathsForThymio(){
 		int count = 0;
 		ArrayList<Integer> thymioPathList = new ArrayList<Integer>();
-		for(int i = 19; i >= 0; i--){
-			for(int k = 0; k < thymioNodes[i].length; k++){
+
+		for(int i = 0; i < myMap.getSizeX(); i++) {
+			for(int k = 0; k < myMap.getSizeY(); k++) {
 				if(thymioNodes[i][k] == 1){
 					thymioNodes[i][k] = 2;
 					count++;
 				}
 			}
-			if(count == 1){
+			if(count == 1) {
 				thymioPathList.add(FORWARD);
 				count = 0; 
 			}
-			if(count > 1){
+			if(count > 1) {
 				thymioPathList.add(RIGHT);
 				for(int y = 0; y < count-1; y++){
 					thymioPathList.add(FORWARD);
@@ -231,27 +257,23 @@ public class Pathfinder {
 		}
 		System.out.println(thymioPathList);
 		return thymioPathList; 
-	
 	}
 
-	
 	public void printThymioNodes(){
 		String check = "\n";
-		for(int i = 0; i < HEIGHT; i++){
-			for(int k = 0; k < WIDTH; k++){
+		for(int i = 0; i < myMap.getSizeX(); i++) {
+			for(int k = 0; k < myMap.getSizeY(); k++) {
 				check += thymioNodes[i][k] + " ";
-				if ((k + 1) % WIDTH == 0) {
-					check += "\n";
-				}
 			}
-			
+			check += "\n";
 		}
+
 		System.out.println(check);
 	}
 
 	/**
-	 * @param args
-	 */
+	 * @param args Map.java
+
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
 		Pathfinder pf = new Pathfinder();
@@ -260,5 +282,5 @@ public class Pathfinder {
 		pf.getPathsForThymio();
 
 	}
-
+	*/
 }

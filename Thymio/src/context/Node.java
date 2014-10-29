@@ -17,6 +17,7 @@ public class Node {
 		coordinate = new Coordinate(posX, posY);
 	}
 
+/* bdludwig moved this to MapElement.java 
 	public void setPredecessor(Node n) {
 		predecessor = n;
 	}
@@ -25,6 +26,7 @@ public class Node {
 		return predecessor;
 	}
 
+	
 	public double getDistTo(Node nextNode) {
 		double dist = coordinate.getDistanceTo(predecessor,
 				nextNode.getCoordinate());
@@ -79,5 +81,5 @@ public class Node {
 	public double getDistToGoal() {
 		return distToGoal;
 	}
-
+*/
 }

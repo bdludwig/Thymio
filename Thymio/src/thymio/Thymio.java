@@ -7,6 +7,7 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 
+import main.Pathfinder;
 import math.MovingAverage;
 
 import observer.MapPanel;
@@ -221,5 +222,32 @@ public class Thymio {
 		}
 
 		lastTimeStamp = now;
+	}
+	
+	public void driveAstarPath() {
+		Pathfinder myPath = new Pathfinder(myPanel.getMap());
+		ArrayList<Integer> paths = myPath.getPathsForThymio();
+		
+		//Wird noch nicht funktionieren - wait Thread noetig?
+		
+		for(int i = 0; i < paths.size(); i++){
+			switch(paths.get(i)){
+			case 1:
+				drive(16.5);
+				break;
+				
+			case 0:
+				drive(-16.5);
+				break;
+				
+			case 2:
+				rotate(90);
+				break;
+				
+			case 3:
+				rotate(-90);
+				break;
+			}
+		}
 	}
 }

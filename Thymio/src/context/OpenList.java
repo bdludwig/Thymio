@@ -2,7 +2,7 @@ package context;
 
 import java.util.ArrayList;
 
-public class OpenList extends ArrayList<Node> {
+public class OpenList extends ArrayList<MapElement> {
 	/**
 	 * 
 	 */
@@ -18,17 +18,17 @@ public class OpenList extends ArrayList<Node> {
 		return cost;
 	}
 
-	public void enqueue(Node n, double c) {
+	public void enqueue(MapElement n, double c) {
 		cost = c;
 		add(n);
 	}
 	
-	public void decreaseKey(Node n, double c) {
+	public void decreaseKey(MapElement n, double c) {
 		cost = c;
 	}
 
-	public Node removeMin() {
-		Node n = get(0);
+	public MapElement removeMin() {
+		MapElement n = get(0);
 		int index = 0;
 		for (int i = 1; i < this.size(); i++) {
 			if (n.getF() > get(i).getF()) {
