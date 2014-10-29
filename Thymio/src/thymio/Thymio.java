@@ -227,7 +227,7 @@ public class Thymio {
 		Pathfinder myPath = new Pathfinder(myPanel.getMap());
 		myPath.findPath();
 		ArrayList<Integer> paths = myPath.getDrivingCommandsForPath();
-				
+
 		new ThymioNavigatingThread(this, paths).start();
 	}
 }

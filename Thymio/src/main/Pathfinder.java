@@ -324,16 +324,4 @@ public class Pathfinder {
 		System.out.println(check);
 	}
 
-	/**
-	 * @param args Map.java
-
-	public static void main(String[] args) {
-		// TODO Auto-generated method stub
-		Pathfinder pf = new Pathfinder();
-		pf.findPath();
-		pf.printThymioNodes();
-		pf.getPathsForThymio();
-
-	}
-	*/
 }

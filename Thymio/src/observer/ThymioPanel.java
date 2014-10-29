@@ -235,10 +235,10 @@ public class ThymioPanel extends JPanel implements ChangeListener, KeyListener, 
 		
 		for(int i = 0; i < paths.size(); i++){
 			switch(paths.get(i)){
-			case 1: myThymio.drive(16.5);
-			case 0: myThymio.drive(-16.5);
-			case 2: myThymio.rotate(90);
-			case 3: myThymio.rotate(-90);
+			case 1: myThymio.drive(16.5); break;
+			case 0: myThymio.drive(-16.5); break;
+			case 2: myThymio.rotate(80); break;
+			case 3: myThymio.rotate(-80); break;
 			}
 		}
 	}
