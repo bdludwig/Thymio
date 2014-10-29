@@ -1,9 +1,7 @@
 package main;
 
-import java.io.ObjectInputStream.GetField;
 import java.util.ArrayList;
 
-import context.Coordinate;
 import context.Map;
 import context.MapElement;
 import context.OpenList;
@@ -27,10 +25,10 @@ public class Pathfinder {
 	private final int WIDTH = 8;
 	private final int OBSTACLE_COUNT = 20;
 	*/
-	private final Integer BACKWARDS = 0;
-	private final Integer FORWARD = 1;
-	private final Integer RIGHT = 2;
-	private final Integer LEFT =3;
+	public static final int BACKWARDS = 0;
+	public static final int FORWARD = 1;
+	public static final int RIGHT = 2;
+	public static final int LEFT = 3;
 
 	/* Map. java
 	private final int START = HEIGHT * WIDTH - WIDTH;
@@ -47,7 +45,7 @@ public class Pathfinder {
 	
 	private OpenList ol = new OpenList();
 	private ArrayList<MapElement> closedList = new ArrayList<MapElement>();
-	private ArrayList<String> thymioPath = new ArrayList<String>();
+	private ArrayList<MapElement> solution = new ArrayList<MapElement>();
 
 	private Map myMap;
 	private int[][] thymioNodes;
@@ -113,10 +111,15 @@ public class Pathfinder {
 	
 	private void markPath() {
 		MapElement n = goalNode;
+				
+		solution.add(goalNode);
+		
 		while (n.getPredecessor() != startNode) {
-			n.getPredecessor().setContent('x');
+			solution.add(0, n);
 			n = n.getPredecessor();
 		}
+		
+		solution.add(0, startNode);
 	}
 
 	private void setLinkNodes() {
@@ -191,48 +194,59 @@ public class Pathfinder {
 	}
 	
 	public void findPath() {
-		ol.enqueue(startNode, 0);
 		MapElement curNode;
+
+		ol.enqueue(startNode, 0);
+		solution = new ArrayList<MapElement>();
+
 		while (!ol.isEmpty()) {
 			curNode = ol.removeMin();
-			if (curNode == goalNode) {
-				System.out.println("Done with cost of: " + ol.getCost());
+			if (curNode.getID() == goalNode.getID()) {
 				markPath();
-				printMap();
+				//printMap();
+				System.out.println("Done with cost of: " + ol.getCost() + " length: " + solution.size());
+
 				return;
 			}
-			closedList.add(curNode);
-			expandNode(curNode);
+			else {
+				closedList.add(curNode);
+				expandNode(curNode);
+			}
+
 		}
 		System.out.println("No Path");
-		printMap();
+		//printMap();
+		System.exit(0);
 	}
 
 	private void expandNode(MapElement n) {
 		double tentative_g;
+		
 		for (MapElement nextNode : n.getLinkNodes()) {
-			if (closedList.contains(nextNode)) {
-				continue;
-			}
-			tentative_g = n.getDistFromStart() + n.getDistTo(nextNode);
-			if (ol.contains(nextNode)
-					&& tentative_g >= nextNode.getDistFromStart()) {
-				continue;
-			}
-			nextNode.setPredecessor(n);
-			nextNode.setDistFromStart(tentative_g);
-			double f = tentative_g + nextNode.getDistToGoal();
-			if (ol.contains(nextNode)) {
-				ol.decreaseKey(nextNode, f);
-			} else {
-				ol.enqueue(nextNode, f);
+			if (!closedList.contains(nextNode)) {
+				tentative_g = n.getDistFromStart() + n.getDistTo(nextNode);
+				if (!ol.contains(nextNode) || tentative_g < nextNode.getDistFromStart()) {		
+					double f = tentative_g + nextNode.getDistToGoal();
+					
+					nextNode.setPredecessor(n);
+					nextNode.setDistFromStart(tentative_g);
+					
+					if (ol.contains(nextNode)) {
+						ol.decreaseKey(nextNode, f);
+					} else {
+						ol.enqueue(nextNode, f);
+					}
+				}
 			}
 		}
 	}
 	
-	public ArrayList<Integer> getPathsForThymio(){
+	public ArrayList<Integer> getDrivingCommandsForPath() {
+		ArrayList<Integer> drivingCommands = new ArrayList<Integer>();
+
+		
+		/*
 		int count = 0;
-		ArrayList<Integer> thymioPathList = new ArrayList<Integer>();
 
 		for(int i = 0; i < myMap.getSizeX(); i++) {
 			for(int k = 0; k < myMap.getSizeY(); k++) {
@@ -257,6 +271,45 @@ public class Pathfinder {
 		}
 		System.out.println(thymioPathList);
 		return thymioPathList; 
+
+		 */
+		if (solution.size() != 0) {
+			int i = 0;
+
+			MapElement p = solution.get(i);
+			MapElement s;
+			
+			double dX, dY;
+			
+			double orientX = Math.cos(myMap.getEstimOrientation())-Math.sin(myMap.getEstimOrientation());
+			double orientY = Math.sin(myMap.getEstimOrientation())+Math.sin(myMap.getEstimOrientation());
+			
+			while (p.getID() != goalNode.getID()) {
+				s = solution.get(i+1);
+
+				dX = s.getPosX() - p.getPosX();
+				dY = s.getPosY() - p.getPosY();
+
+				System.out.println(orientX + "/" + orientY + "|" + dX + "/" + dY);
+				System.out.println(orientX*dX + orientY*dY);
+				
+				if (orientX*dX + orientY*dY > 0) drivingCommands.add(FORWARD);
+				else if (orientX > 0 && dY > 0) drivingCommands.add(LEFT);
+				else if (orientY > 0 && dX > 0) drivingCommands.add(RIGHT);
+				
+				/*
+			if (dX > 0 && dY == 0) 
+			if (dX*dY == 0) drivingCommands.add(FORWARD);
+			else if ()
+				 */
+				orientX = dX;
+				orientY = dY;
+
+				i++;
+				p = solution.get(i);
+			}
+		}
+		return drivingCommands;
 	}
 
 	public void printThymioNodes(){

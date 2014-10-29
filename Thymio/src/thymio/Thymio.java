@@ -25,6 +25,7 @@ public class Thymio {
 	private List<Short> proxHorizontal;
 	private MovingAverage odomLeftMean;
 	private MovingAverage odomRightMean;
+	private Thread t;
 	
 	public static final double MAXSPEED = 500;
 	public static final double SPEEDCOEFF = 2.93;
@@ -100,23 +101,16 @@ public class Thymio {
 	}
 
 	public synchronized void drive(double distCM) {
-		try {
-			double dt;
-			
-			if (distCM > 0) dt = 3/14.03541*distCM;
-			else dt = -3/14.81564*distCM;
-			
-			this.wait();
-			this.setSpeed((short)(0), (short)(0));
-						
-			this.wait();
-			this.setSpeed((short)(Math.signum(distCM)*STRAIGHTON), (short)(Math.signum(distCM)*STRAIGHTON));
-			new ThymioStopThread(this, (long)(dt*1000)).start();
+		double dt;
 
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		if (distCM > 0) dt = 3/14.03541*distCM;
+		else dt = -3/14.81564*distCM;
+
+		this.setSpeed((short)(0), (short)(0));						
+		this.setSpeed((short)(Math.signum(distCM)*STRAIGHTON), (short)(Math.signum(distCM)*STRAIGHTON));
+
+		t = new ThymioStopThread(this, (long)(dt*1000));
+		t.start();
 	}
 	
 	public synchronized void rotate(double deg) {
@@ -131,7 +125,8 @@ public class Thymio {
 			this.wait();
 			this.setSpeed((short)(Math.signum(deg)*VROTATION), (short)(-Math.signum(deg)*VROTATION));
 			System.out.println(Math.signum(deg)*VROTATION*360/(Math.PI*BASE_WIDTH*SPEEDCOEFF) + "/" + dt);
-			new ThymioStopThread(this, (long)(dt*1000)).start();
+			t = new ThymioStopThread(this, (long)(dt*1000));
+			t.start();
 		} catch (InterruptedException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
@@ -224,30 +219,15 @@ public class Thymio {
 		lastTimeStamp = now;
 	}
 	
+	public Thread getThread() {
+		return t;
+	}
+	
 	public void driveAstarPath() {
 		Pathfinder myPath = new Pathfinder(myPanel.getMap());
-		ArrayList<Integer> paths = myPath.getPathsForThymio();
-		
-		//Wird noch nicht funktionieren - wait Thread noetig?
-		
-		for(int i = 0; i < paths.size(); i++){
-			switch(paths.get(i)){
-			case 1:
-				drive(16.5);
-				break;
+		myPath.findPath();
+		ArrayList<Integer> paths = myPath.getDrivingCommandsForPath();
 				
-			case 0:
-				drive(-16.5);
-				break;
-				
-			case 2:
-				rotate(90);
-				break;
-				
-			case 3:
-				rotate(-90);
-				break;
-			}
-		}
+		new ThymioNavigatingThread(this, paths).start();
 	}
 }
