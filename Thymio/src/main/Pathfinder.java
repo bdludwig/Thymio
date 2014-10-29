@@ -54,9 +54,7 @@ public class Pathfinder {
 		/* Map.java
 		populateMap();
 		*/
-		myMap = m;
-		thymioNodes = new int[myMap.getSizeX()][myMap.getSizeY()];
-		
+		myMap = m;		
 		startNode = m.getCurrentPos();
 		goalNode = m.getElement(myMap.getSizeX() - 1, myMap.getSizeY() - 1);
 		
@@ -309,6 +307,7 @@ public class Pathfinder {
 				p = solution.get(i);
 			}
 		}
+		
 		return drivingCommands;
 	}
 
