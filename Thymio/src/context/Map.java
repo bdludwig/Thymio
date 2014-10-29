@@ -197,14 +197,12 @@ public class Map {
 	public double getCovariance(int x, int y) {
 		return posEstimate.getCovariance().get(x, y);
 	}
-	
-	public int getThymioX() {
-		return thymioX;
-	}
 
-	
-	public int getThymioY() {
-		return thymioY;
+	public MapElement getCurrentPos() {
+		int x = (int)(estPosX/MapPanel.LENGTH_EDGE_CM);
+		int y = (int)(estPosY/MapPanel.LENGTH_EDGE_CM);
+		
+		return element[x][y];
 	}
 	
 	public double getEstimPosX() {
@@ -237,14 +235,12 @@ public class Map {
 	}
 	
 	private void initMap() {
-		Random r = new Random();
-		ArrayList<Integer> occupiedElements = new ArrayList<Integer>();
-		
+		int id = 0;
 		// initialize each element of the map
 		
 		for (int x = 0; x < sizeX; x++) {
 			for (int y = 0; y < sizeY; y++) {
-				element[x][y] = new MapElement(x, y);
+				element[x][y] = new MapElement(id ++, x, y);
 				element[x][y].setColor((x+y)%2 == 0 ? Color.WHITE : Color.LIGHT_GRAY);
 			}
 		}

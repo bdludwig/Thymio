@@ -18,7 +18,7 @@ public class Coordinate {
 	public int getY() {
 		return y;
 	}
-	public double getDistanceTo(Node predecessor, Coordinate nextCoordinate) {
+	public double getDistanceTo(MapElement predecessor, Coordinate nextCoordinate) {
 		int x2 = nextCoordinate.getX();
 		int y2 = nextCoordinate.getY();
 		int additionalCost = 0;

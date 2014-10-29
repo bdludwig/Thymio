@@ -1,6 +1,5 @@
 package observer;
 
-import java.awt.Dimension;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.Random;
@@ -10,6 +9,8 @@ import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 
+import thymio.Thymio;
+
 import context.Map;
 import context.MapElement;
 
@@ -18,13 +19,16 @@ public class ExperimentPanel extends JPanel implements ActionListener {
 	private final int numObstacles = 10;
 	
 	private Map myMap;
+	private Thymio myThymio;
+	
 	private JFrame myFrame;
 	private JButton setObstacles;
 	private JButton startRun;
 	
-	public ExperimentPanel(Map m, JFrame f) {
+	public ExperimentPanel(Map m, Thymio t, JFrame f) {
 		myMap = m;
 		myFrame = f;
+		myThymio = t;
 		
 		this.setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
 
@@ -44,7 +48,7 @@ public class ExperimentPanel extends JPanel implements ActionListener {
 			populateMapWithObstacles();
 		}
 		else if (e.getSource() == startRun) {
-			
+			myThymio.driveAstarPath();
 		}
 	}	
 	

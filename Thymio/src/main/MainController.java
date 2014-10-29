@@ -27,10 +27,10 @@ public class MainController extends JFrame {
 		super("Map");
 		
 		myMap = new Map(MAPSIZE_X, MAPSIZE_Y, MapPanel.LENGTH_EDGE_CM);
-		exPanel = new ExperimentPanel(myMap, this);
 		myPanel = new MapPanel(myMap, this);
 		myThymio = new Thymio(myPanel, host);
 		observer = myThymio.getInterface();
+		exPanel = new ExperimentPanel(myMap, myThymio, this);
 	}
 
 	public void init() {

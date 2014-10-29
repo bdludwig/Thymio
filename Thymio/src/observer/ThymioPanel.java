@@ -27,7 +27,7 @@ public class ThymioPanel extends JPanel implements ChangeListener, KeyListener, 
 	private ThymioInterface myUI;
 	private JSlider vForward, theta;
 	private JLabel valVelocity, valTheta;
-	private JButton stop, leftTurn, rightTurn, ahead, back, astern;
+	private JButton stop, leftTurn, rightTurn, ahead, back/* moved, astern*/;
 	
 	public ThymioPanel(Thymio t, ThymioInterface ui) {
 		myThymio = t;
@@ -76,10 +76,10 @@ public class ThymioPanel extends JPanel implements ChangeListener, KeyListener, 
 		back = new JButton("FIELD BACK");
 		back.addActionListener(this);
 		
-		//Button for running Thymio with A*
+		/* moved Button for running Thymio with A*
 		astern = new JButton("A* Start");
 		astern.addActionListener(this);
-		
+		*/
 		
 		this.add(valVelocity);
 		this.add(valTheta);
@@ -93,7 +93,7 @@ public class ThymioPanel extends JPanel implements ChangeListener, KeyListener, 
 		buttonPanel.add(rightTurn);
 		buttonPanel.add(ahead);
 		buttonPanel.add(back);
-		buttonPanel.add(astern);
+		/* moved buttonPanel.add(astern);*/
 		
 		
 		this.add(buttonPanel);
@@ -218,20 +218,21 @@ public class ThymioPanel extends JPanel implements ChangeListener, KeyListener, 
 		else if (e.getSource() == back) {
 			myThymio.drive(-16.5);
 		}
+		/* moved
 		else if(e.getSource() == astern){
 			driveAstarPath();
 		}
-		
+		*/
 		if(!this.isFocusOwner()) this.requestFocus();
 	}
 	
-	
-	public void driveAstarPath(){
+	/* moved
+	public void driveAstarPath() {
 		Pathfinder myPath = new Pathfinder();
 		ArrayList<Integer> paths = myPath.getPathsForThymio();
 		
+		//Wird noch nicht funktionieren - wait Thread noetig?
 		
-		//Wird noch nicht funktionieren - wait Thread nötig?
 		for(int i = 0; i < paths.size(); i++){
 			switch(paths.get(i)){
 			case 1: myThymio.drive(16.5); break;
@@ -241,4 +242,5 @@ public class ThymioPanel extends JPanel implements ChangeListener, KeyListener, 
 			}
 		}
 	}
+	*/
 }
