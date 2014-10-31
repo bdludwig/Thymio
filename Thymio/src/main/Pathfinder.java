@@ -63,9 +63,6 @@ public class Pathfinder {
 		goalNode = m.getElement(myMap.getSizeX() - 1, myMap.getSizeY() - 1);
 		
 		setLinkNodes();
-		
-		findPath();
-		printThymioNodes();
 	}
 
 	/*
@@ -88,6 +85,8 @@ public class Pathfinder {
 	}
 	*/
 
+	
+	
 	/*
 	 * moved to Map.java
 

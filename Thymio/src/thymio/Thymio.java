@@ -249,6 +249,8 @@ public class Thymio {
 				rotate(-90);
 				break;
 			}
+			
+			
 		}
 	}
 }
