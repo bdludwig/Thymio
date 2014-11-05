@@ -202,7 +202,9 @@ public class Map {
 		//double [] speed = {dF/dt, dR/dt};
 		
 		posEstimate.predict(Gu);
+		System.out.println(posEstimate.getState());
 		posEstimate.update(DenseMatrix64F.wrap(2, 1, speed), H, R);
+		System.out.println(posEstimate.getState());
 		
 		DenseMatrix64F estimState = posEstimate.getState();
 		estPosX = estimState.get(0);

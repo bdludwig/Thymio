@@ -93,11 +93,13 @@ public class ExperimentPanel extends JPanel implements ActionListener {
 				occupied.add(rx+","+ry);
 			}
 		}
-		writeOccupied();
 		
 		myFrame.repaint();
+
+		writeOccupied();
 	}
-	private void writeOccupied() throws IOException{
+	
+	private void writeOccupied() throws IOException {
 		String filenameout="obstacles.csv";
 		File newFile = null;
 		FileWriter writer = null;
@@ -115,16 +117,14 @@ public class ExperimentPanel extends JPanel implements ActionListener {
 		
 		System.out.println("Choose folder to create file");
 		JFileChooser c = new JFileChooser();
-		c.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-		c.showOpenDialog(c);
+		c.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+		c.showOpenDialog(this);
 		c.getSelectedFile();
 		newFile = c.getSelectedFile(); // File f - global variable
-		String newfile = newFile + "\\obsticles.csv";//.txt or .doc or .html
-		File file = new File(newfile);
 		    try 
 		    {
 		        //System.out.println(f);
-		        boolean flag = file.createNewFile();
+		        boolean flag = newFile.createNewFile();
 
 		        JFrame rootPane = new JFrame();
 				if(flag==true)
