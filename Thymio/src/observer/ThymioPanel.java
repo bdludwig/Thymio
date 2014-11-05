@@ -28,6 +28,7 @@ public class ThymioPanel extends JPanel implements ChangeListener, KeyListener, 
 	private JSlider vForward, theta;
 	private JLabel valVelocity, valTheta;
 	private JButton stop, leftTurn, rightTurn, ahead, back/* moved, astern*/;
+	private SensorPanel mySensorView;
 	
 	public ThymioPanel(Thymio t, ThymioInterface ui) {
 		myThymio = t;
@@ -92,11 +93,12 @@ public class ThymioPanel extends JPanel implements ChangeListener, KeyListener, 
 		buttonPanel.add(leftTurn);
 		buttonPanel.add(rightTurn);
 		buttonPanel.add(ahead);
-		buttonPanel.add(back);
-		/* moved buttonPanel.add(astern);*/
-		
+		buttonPanel.add(back);		
 		
 		this.add(buttonPanel);
+		
+		mySensorView = new SensorPanel();
+		this.add(mySensorView);
 	}
 
 	@Override
@@ -207,10 +209,10 @@ public class ThymioPanel extends JPanel implements ChangeListener, KeyListener, 
 			updateThymio();
 		}
 		else if (e.getSource() == leftTurn) {
-			myThymio.rotate(-90);
+			myThymio.rotate(-Math.PI/2);
 		}
 		else if (e.getSource() == rightTurn) {
-			myThymio.rotate(90);
+			myThymio.rotate(Math.PI/2);
 		}
 		else if (e.getSource() == ahead) {
 			myThymio.drive(16.5);
@@ -218,29 +220,23 @@ public class ThymioPanel extends JPanel implements ChangeListener, KeyListener, 
 		else if (e.getSource() == back) {
 			myThymio.drive(-16.5);
 		}
-		/* moved
-		else if(e.getSource() == astern){
-			driveAstarPath();
-		}
-		*/
+
 		if(!this.isFocusOwner()) this.requestFocus();
 	}
 	
-	/* moved
-	public void driveAstarPath() {
-		Pathfinder myPath = new Pathfinder();
-		ArrayList<Integer> paths = myPath.getPathsForThymio();
-		
-		//Wird noch nicht funktionieren - wait Thread noetig?
-		
-		for(int i = 0; i < paths.size(); i++){
-			switch(paths.get(i)){
-			case 1: myThymio.drive(16.5); break;
-			case 0: myThymio.drive(-16.5); break;
-			case 2: myThymio.rotate(80); break;
-			case 3: myThymio.rotate(-80); break;
-			}
-		}
+	public void setLeftMapProbs(double [] p) {
+		mySensorView.setLeftMapProbs(p);
 	}
-	*/
+	
+	public void setRightMapProbs(double [] p) {
+		mySensorView.setRightMapProbs(p);
+	}
+	
+	public void setLeftValueProbs(double [] p) {
+		mySensorView.setLeftValueProbs(p);
+	}
+	
+	public void setRightValueProbs(double [] p) {
+		mySensorView.setRightValueProbs(p);
+	}
 }

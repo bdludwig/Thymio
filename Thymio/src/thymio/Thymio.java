@@ -1,5 +1,6 @@
 package thymio;
 
+import java.awt.Color;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -7,10 +8,14 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 
+import context.Coordinate;
+import context.MapElement;
+
 import main.Pathfinder;
 import math.MovingAverage;
 
 import observer.MapPanel;
+import observer.SensorPanel;
 import observer.ThymioInterface;
 
 public class Thymio {
@@ -106,25 +111,10 @@ public class Thymio {
 		if (distCM > 0) dt = 3/14.03541*distCM;
 		else dt = -3/14.81564*distCM;
 
-		this.setSpeed((short)(0), (short)(0));						
-		this.setSpeed((short)(Math.signum(distCM)*STRAIGHTON), (short)(Math.signum(distCM)*STRAIGHTON));
-
-		t = new ThymioStopThread(this, (long)(dt*1000));
-		t.start();
-	}
-	
-	public synchronized void rotate(double deg) {
-		double dt;
-		
 		try {
 			this.wait();
-			this.setSpeed((short)(0), (short)(0));
+			this.setSpeed((short)(Math.signum(distCM)*STRAIGHTON), (short)(Math.signum(distCM)*STRAIGHTON));
 
-			dt = (Math.abs(deg)-1.09)/(0.36*VROTATION); // secs needed for rotation
-			
-			this.wait();
-			this.setSpeed((short)(Math.signum(deg)*VROTATION), (short)(-Math.signum(deg)*VROTATION));
-			System.out.println(Math.signum(deg)*VROTATION*360/(Math.PI*BASE_WIDTH*SPEEDCOEFF) + "/" + dt);
 			t = new ThymioStopThread(this, (long)(dt*1000));
 			t.start();
 		} catch (InterruptedException e1) {
@@ -132,8 +122,25 @@ public class Thymio {
 			e1.printStackTrace();
 		}
 	}
+	
+	public synchronized void rotate(double rad) {
+		double dt;
+		
+		try {
+			dt = (Math.abs(rad*180/Math.PI)-1.09)/(0.36*VROTATION); /*Thymio's personal constant */; // secs needed for rotation
+			
+			this.wait();
+			this.setSpeed((short)(Math.signum(rad)*VROTATION), (short)(-Math.signum(rad)*VROTATION));
+			t = new ThymioStopThread(this, (long)(dt*1000));
+			t.start();
+			System.out.println("rotating ...");
+		} catch (InterruptedException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+	}
 
-	public void updatePose(long now) {
+	public synchronized void updatePose(long now) {
 		List<Short> sensorData;
 
 		if (lastTimeStamp > Long.MIN_VALUE) {
@@ -176,18 +183,13 @@ public class Thymio {
 
 			logData.print(odomForward + "\t" + distForward + "\t" + odomRotation + "\t" + distRotation + "\t");
 
-			//if ((distRotation != 0) || (distForward != 0)) {
-				myPanel.updatePose(distForward, distRotation,
-						(distForward != 0 ? odomForward : 0), (distRotation != 0 ? odomRotation : 0),
-						secsElapsed);
-			//}
+			
+			myPanel.updatePose(distForward, distRotation,
+					(distForward != 0 ? odomForward : odomForward), (distRotation != 0 ? odomRotation : odomRotation),
+					secsElapsed);
 			/*
-				else {
-					myPanel.updatePose(distForward, distRotation,
-							0, 0,
-							secsElapsed);
-				}*/
-
+			myPanel.updatePose(distForward, distRotation, distForward, distRotation, secsElapsed);
+			*/
 			logData.print(myPanel.getEstimPosX() + "\t" +myPanel.getEstimPosY());
 
 
@@ -209,11 +211,11 @@ public class Thymio {
 			logData.print("\n");
 			logData.flush();
 
-			
-			myPanel.updatePoseGround(sensorData,
-					                 Math.atan2(secsElapsed*(or+odomRightMean.getStd()-ol-odomLeftMean.getStd())/SPEEDCOEFF, BASE_WIDTH));
-					                 
+
+			myPanel.updatePoseGround(sensorData, this);
 			myPanel.repaint();
+			
+			myInterface.updateSensorView(sensorData, myPanel.getSensorMapProbsLeft(), myPanel.getSensorMapProbRight());
 		}
 
 		lastTimeStamp = now;
@@ -223,11 +225,58 @@ public class Thymio {
 		return t;
 	}
 	
-	public void driveAstarPath() {
-		Pathfinder myPath = new Pathfinder(myPanel.getMap());
-		myPath.findPath();
-		ArrayList<Integer> paths = myPath.getDrivingCommandsForPath();
+	private void driveUntil(int expectedColorLeft, int expectedColorRight, int direction, double intendedTheta, Coordinate p, Coordinate s) {
+		double [] probsLeft;
+		double [] probsRight;
+		MapElement c;
+		
+		System.out.println("NEXT COLORS: " + expectedColorLeft + "," + expectedColorRight);
+		this.setSpeed((short)(direction*STRAIGHTON), (short)(direction*STRAIGHTON));
 
-		new ThymioNavigatingThread(this, paths).start();
+		do {
+			probsLeft = myInterface.getLeftValueProbs();
+			probsRight = myInterface.getRightValueProbs();
+
+			try {
+				Thread.sleep(ThymioDrivingThread.UPDATE_INTERVAL);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+
+			c = myPanel.getCurrentPos();
+		}
+		while ((probsLeft[expectedColorLeft] < 0.5 || probsRight[expectedColorRight] < 0.5) && c.onPath());
+		
+		// postcondition: probsLeft[expectedColorLeft] >= 0.5 && probsRight[expectedColorRight] >= 0.5 OR
+		//                wrong position detected
+	}
+	
+	public void driveAheadUntil(int expectedColorLeft, int expectedColorRight, double intendedTheta, Coordinate p, Coordinate s) {
+		driveUntil(expectedColorLeft, expectedColorRight, 1, intendedTheta, p, s);
+	}
+
+	public void driveBackUntil(int expectedColorLeft, int expectedColorRight, double intendedTheta, Coordinate p, Coordinate s) {
+		driveUntil(expectedColorLeft, expectedColorRight, -1, -intendedTheta, p, s);	
+	}
+	
+	public void driveAstarPath() {
+		Pathfinder myPath = new Pathfinder(myPanel.getMap(),
+				                           myPanel.getCurrentPos(),
+				                           myPanel.getMap().getElement(myPanel.getMap().getSizeX() - 1, myPanel.getMap().getSizeY() - 2));
+		ArrayList<MapElement> solution;
+		
+		myPath.findPath();
+		solution = myPath.getSolution();
+		
+		if (solution == null) System.out.println("NO PATH");
+		else if (solution.size() > 0) new ThymioNavigatingThread(this, myPanel, solution).start();
+		// else do nothing.
+	}
+	
+	public ArrayList<MapElement> computePath(MapElement start, MapElement goal) {
+		Pathfinder myPath = new Pathfinder(myPanel.getMap(), start, goal);
+		myPath.findPath();
+		return myPath.getSolution();
 	}
 }

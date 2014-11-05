@@ -11,6 +11,7 @@ public class MapElement {
 									// from observations
 	
 	private boolean onBeam;			// set temporarily if the element is hit by infrared beam
+	private boolean onPath;			// set temporarily if the element is on the path to Thymio's destination
 	private Color myColor;
 
 	private MapElement predecessor;
@@ -62,6 +63,14 @@ public class MapElement {
 		occupied = occ;
 	}
 
+	public boolean onPath() {
+		return onPath;
+	}
+	
+	public void setOnPath(boolean onPath) {
+		this.onPath = onPath;
+	}
+	
 	public boolean onBeam() {
 		return onBeam;
 	}

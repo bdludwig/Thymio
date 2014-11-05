@@ -35,6 +35,8 @@ public class Map {
 			                                               -0.25*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM,
 			                                               MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM,
 			                                               0.5*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM);
+	private double [] sensorMapProbsLeft;
+	private double [] sensorMapProbsRight;
 
 	public static final int N = 20; // number of occupied elements
 	
@@ -75,17 +77,18 @@ public class Map {
 		
 		// state transition
 		
-		
+/*		
 		double [][] valF = {{1, 0, 0, 0},
 				            {0, 1, 0, 0},
 				            {0, 0, 0, 0},
 				            {0, 0, 0, 0}};
-		
-		/*double [][] valF = {{1, 0, 0, 0, 0},
+*/	
+		double [][] valF = {{1, 0, 0, 0, 0},
 				            {0, 1, 0, 0, 0},
 				            {0, 0, 1, 0, 0},
 				            {0, 0, 0, 0, 0},
-				            {0, 0, 0, 0, 0}};*/
+				            {0, 0, 0, 0, 0}};
+		
 		F = new DenseMatrix64F(valF);
 		
 		// process noise
@@ -98,39 +101,49 @@ public class Map {
 	            {0, 0, 0, 0, 0}};
 		*/
 
-		
+		/*
 		double [][] valQ = {{0.0889258250, -0.0117208306, 0, 0},
 				            {-0.0117208306, 0.0341476440, 0, 0},
 				            {0, 0, 0, 0},
 				            {0, 0, 0, 0}};
-		/*
+		*/
+		
+		double [][] valQ = {{0.889258250, -0.117208306, 1.609542e-02, 0, 0},
+	            {-0.117208306, 0.341476440, -1.451464e-02, 0, 0},
+	            {0.01609542, -0.01451464,  2.702792e-05, 0, 0},
+	            {0, 0, 0, 0, 0},
+	            {0, 0, 0, 0, 0}};
+/*
 		double [][] valQ = {{0.0889258250, -0.0117208306, 1.609542e-04, 0, 0},
 				            {-0.0117208306, 0.0341476440, -1.451464e-04, 0, 0},
 				            {0.0001609542, -0.0001451464,  2.702792e-05, 0, 0},
 				            {0, 0, 0, 0, 0},
-				            {0, 0, 0, 0, 0}};*/
-
+				            {0, 0, 0, 0, 0}};
+*/
 		Q = new DenseMatrix64F(valQ);
 		
 		
 		// sensor noise
-		
+		/*
 		double [][] valR = {{0.1554881, 0.0007000067}, {0.0007000067, 0.01394959}};
+		*/
+		double [][] valR = {{0.1554881, 0.07000067}, {0.07000067, 0.01394959}};
 		R = new DenseMatrix64F(valR);
 		
 		// initial state
 
-		double [][] valP = {{0, 0, 0, 0},
-				            {0, 0, 0, 0},
-				            {0, 0, 0, 0},
-				            {0, 0, 0, 0}};
+		double [][] valP = {{0, 0, 0, 0, 0},
+				            {0, 0, 0, 0, 0},
+				            {0, 0, 0, 0, 0},
+				            {0, 0, 0, 0, 0},
+				            {0, 0, 0, 0, 0}};
 		P = new DenseMatrix64F(valP);
 		
-		double [] state = {posX, posY, 0, 0};
+		double [] state = {posX, posY, thymioTheta, 0, 0};
 		
 		posEstimate = new KalmanFilter();
 		posEstimate.configure(F, Q);
-		posEstimate.setState(DenseMatrix64F.wrap(4, 1, state), P);
+		posEstimate.setState(DenseMatrix64F.wrap(5, 1, state), P);
 	}
 	
 	public double getEdgeLength() {
@@ -149,14 +162,15 @@ public class Map {
 	}
 	
 	public void updatePose(double dF, double dR, double dFobs, double dRobs, double dt) {
-		double [] delta = new double[4];
+		double [] delta = new double[5];
 		
 		delta[0] = Math.cos(estTheta)*dF;
 		delta[1] = Math.sin(estTheta)*dF;
-		delta[2] = dF;
-		delta[3] = dR;
+		delta[2] = dR;
+		delta[3] = dF;
+		delta[4] = dR;
 		
-		DenseMatrix64F Gu = DenseMatrix64F.wrap(4, 1, delta);
+		DenseMatrix64F Gu = DenseMatrix64F.wrap(5, 1, delta);
 		
 		thymioTheta = thymioTheta + dR;
 		posX += delta[0];
@@ -164,9 +178,9 @@ public class Map {
 		
 		// observation model
 		
-		double [][] valH = {{0, 0, 0, 0}, {0, 0, 0, 0}};
-		valH[0][2] = 1/dt;
-		valH[1][3] = 1/dt;
+		double [][] valH = {{0, 0, 0, 0, 0}, {0, 0, 0, 0, 0}};
+		valH[0][3] = dt;
+		valH[1][4] = dt;
 		DenseMatrix64F H = new DenseMatrix64F(valH);
 
 		// sensor values
@@ -180,7 +194,7 @@ public class Map {
 		DenseMatrix64F estimState = posEstimate.getState();
 		estPosX = estimState.get(0);
 		estPosY = estimState.get(1);
-		estTheta += dRobs;
+		estTheta = estimState.get(2);
 
 		thymioX = (int)(estPosX/MapPanel.LENGTH_EDGE_CM);
 		thymioY = (int)(estPosY/MapPanel.LENGTH_EDGE_CM);
@@ -332,15 +346,16 @@ public class Map {
 	
 	public double rotationProbability(double angle) {
 		double dist = angle - getEstimOrientation();
+		double sigma = getCovariance(2, 2);
 		
-		return dist*dist/11.31239;
+		return dist*dist/(sigma == 0 ? 2.702792e-05 : sigma);
 	}
 	
 	public double posProbability(double x, double y) {
 		double distPredX = x*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE - getEstimPosX();
 		double distPredY = y*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE - getEstimPosY();
 		
-		System.out.println("dist X:" + distPredX + "/dist Y:" + distPredY);
+		//System.out.println("dist X:" + distPredX + "/dist Y:" + distPredY);
 		return getCovariance(0,0)*distPredX*distPredX +
 				 2*getCovariance(0,1)*distPredX*distPredY +
 				 getCovariance(1,1)*distPredY*distPredY;
@@ -353,7 +368,7 @@ public class Map {
 		
 		sensorRotation[sensorid] = new AffineTransform();
 		sensorRotation[sensorid].translate(sensorx, height - sensory);
-		sensorRotation[sensorid].rotate(estTheta + angle + Math.PI/2);
+		sensorRotation[sensorid].rotate(estTheta + angle);
 
 		Path2D sensingArea = (Path2D)sensorRotation[sensorid].createTransformedShape(sensorbox);
 		Rectangle2D transformedbox = sensingArea.getBounds2D();
@@ -399,43 +414,58 @@ public class Map {
 		return sensorbox;
 	}
 	
-	public double computeSensorProb(double x, double y, double dtheta, int val1, double angle1, int val2, double angle2, Graphics g, int height) {
+	public double computeSensorProb(double x, double y, double dtheta, int val1, double angle1, int val2, double angle2, Graphics g, int height, boolean printDebug) {
 		double [] sensorValDist;
 		double sensorProb;
 		
 		// System.out.println("computing a posteriori for: " + posX + "/" + posY);
 		sensorValDist = computeSensorProb(0, x, y, dtheta + angle1, g, height);
+		sensorMapProbsLeft = sensorValDist;
+
+
 		if (val1 > 300) {
 			// light color
 			
 			sensorProb = sensorValDist[0];
-			System.out.println((int)x + "/" + (int)y + ": prob sensor 1 for " + val1 + ": " + sensorProb + "|" + sensorValDist[0] + "," + sensorValDist[1]);
+			//System.out.println((int)x + "/" + (int)y + ": prob sensor 1 for " + val1 + ": " + sensorProb + "|" + sensorValDist[0] + "," + sensorValDist[1]);
 		}
 		else {
 			// dark color
 			
 			sensorProb = sensorValDist[1];
-			System.out.println((int)x + "/" +(int) y + ": prob sensor 1 for " + val1 + ": " + sensorProb + "|" + sensorValDist[0] + "," + sensorValDist[1]);
+			//System.out.println((int)x + "/" +(int) y + ": prob sensor 1 for " + val1 + ": " + sensorProb + "|" + sensorValDist[0] + "," + sensorValDist[1]);
 		}
 
 		sensorValDist = computeSensorProb(1, x, y, dtheta + angle2, g, height);
+		sensorMapProbsRight = sensorValDist;
+
 		if (val2 > 300) {
 			// light color
 			
 			sensorProb *= sensorValDist[0];
-			System.out.println((int)x + "/" + (int)y + ": prob sensor 2 for " + val1 + ": " + sensorValDist[0] + "|" + sensorValDist[0] + "," + sensorValDist[1]);
+			//System.out.println((int)x + "/" + (int)y + ": prob sensor 2 for " + val1 + ": " + sensorValDist[0] + "|" + sensorValDist[0] + "," + sensorValDist[1]);
 		}
 		else {
 			// dark color
 			
 			sensorProb *= sensorValDist[1];
-			System.out.println((int)x + "/" + (int)y + ": prob sensor 2 for " + val2 + ": " + sensorValDist[1] + "|" + sensorValDist[0] + "," + sensorValDist[1]);
+			//System.out.println((int)x + "/" + (int)y + ": prob sensor 2 for " + val2 + ": " + sensorValDist[1] + "|" + sensorValDist[0] + "," + sensorValDist[1]);
 		}
 		
-		if (sensorProb == 0) {
-			System.out.println("definitly wrong.");
-			return Double.POSITIVE_INFINITY;
+		if (printDebug) {
+			System.out.println("EXP LINKS: " + ((sensorMapProbsLeft[0] > 0) ? "weiss" : "schwarz ") + " RECHTS: " + ((sensorMapProbsRight[0] > 0) ? "weiss" : "schwarz ") + " PROB: " + sensorProb);
+			System.out.println("OBS LINKS: " + ((val1 > 300) ? "weiss" : "schwarz ") + " RECHTS: " + ((val2 > 300) ? "weiss" : "schwarz ") + " PROB: " + sensorProb);
 		}
+
+		if (sensorProb == 0) return Double.POSITIVE_INFINITY;
 		else return -Math.log(sensorProb);
+	}
+	
+	public double [] getSensorMapProbsLeft() {
+		return sensorMapProbsLeft;
+	}
+
+	public double [] getSensorMapProbsRight() {
+		return sensorMapProbsRight;
 	}
 }
