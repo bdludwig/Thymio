@@ -104,16 +104,16 @@ public class ExperimentPanel extends JPanel implements ActionListener {
 		File newFile = null;
 		FileWriter writer = null;
 		
-//		writer = new FileWriter(filenameout,true);
-//		
-//		for(String s : occupied){
-//			
-//				writer.append(s+"\n");
-//				writer.flush();
-//			
-//			
-//		}
-//	writer.close();
+		writer = new FileWriter(newFile,true);
+		
+		for(String s : occupied){
+			
+				writer.append(s+"\n");
+				writer.flush();
+			
+			
+		}
+	writer.close();
 		
 		System.out.println("Choose folder to create file");
 		JFileChooser c = new JFileChooser();
