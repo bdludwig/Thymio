@@ -101,57 +101,21 @@ public class ExperimentPanel extends JPanel implements ActionListener {
 	
 	private void writeOccupied() throws IOException {
 		String filenameout="obstacles.csv";
-		File newFile = null;
-		FileWriter writer = null;
-		
-		writer = new FileWriter(newFile,true);
-		
-		for(String s : occupied){
-			
-				writer.append(s+"\n");
-				writer.flush();
-			
-			
-		}
-	writer.close();
+		FileWriter writer;
 		
 		System.out.println("Choose folder to create file");
 		JFileChooser c = new JFileChooser();
-		c.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+		//c.setSelectedFile(new File(filenameout));
+		//c.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
 		c.showOpenDialog(this);
-		c.getSelectedFile();
-		newFile = c.getSelectedFile(); // File f - global variable
-		    try 
-		    {
-		        //System.out.println(f);
-		        boolean flag = newFile.createNewFile();
 
-		        JFrame rootPane = new JFrame();
-				if(flag==true)
-		        {
-		            JOptionPane.showMessageDialog(rootPane, "File created successfully");
-		        }
-		        else
-		        {
-		            JOptionPane.showMessageDialog(rootPane, "File already exists");
-		        }
-		        /* or use exists() function as follows:
-		            if(file.exists()==true)
-		            {
-		                JOptionPane.showMessageDialog(rootPane, "File already exists");
-		            }
-		            else
-		            {
-		                JOptionPane.showMessageDialog(rootPane, "File created successfully");
-		            }
+		writer = new FileWriter(c.getSelectedFile(), true);
 
-		        */
-		    }
-
-		    catch(Exception e)
-		    {
-		        //any exception handling method of your choice
-		    }
+		for(String s : occupied){
+			writer.append(s+"\n");
+			writer.flush();
+		}
 		
+		writer.close();
 	}
 }
