@@ -254,10 +254,21 @@ public class MapPanel extends JPanel {
 		double radius = 7.25*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM;
 
 		g.setColor(Color.YELLOW);
-		g.fillArc((int)(x0- 0.5*radius), this.getHeight() - (int)(y0 + radius),
-				  (int)(radius), (int)(radius),
-				  (int)((angle - thetaStd)/Math.PI*180), (int)(2*thetaStd/Math.PI*180));
-	}
+		g.drawLine((int)x0, this.getHeight() - (int)y0, (int)(x0 + radius*Math.cos(angle - thetaStd)),
+                (int)(this.getHeight() - (y0 + radius*Math.sin(angle - thetaStd))));
+		g.drawLine((int)x0, this.getHeight() - (int)y0, (int)(x0 + radius*Math.cos(angle + thetaStd)),
+                (int)(this.getHeight() - (y0 + radius*Math.sin(angle + thetaStd))));
+		
+		g.setColor(Color.RED);
+		
+		double ox = myMap.getObsX()*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM;
+		double oy = myMap.getObsY()*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM;
+		
+		g.fillRect((int)(ox) - 2, this.getHeight() - 2 - (int)(oy), 4 ,4);
+		g.drawLine((int)(ox), this.getHeight() - (int)(oy),
+				   (int)(ox + 10*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM*Math.cos(myMap.getObsTheta())),
+                   this.getHeight() - (int)(oy + 10*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM*Math.sin(myMap.getObsTheta())));
+}
 	
 	public double getEstimPosX() {
 		return myMap.getEstimPosX();
@@ -281,5 +292,10 @@ public class MapPanel extends JPanel {
 	
 	public MapElement getCurrentPos() {
 		return myMap.getCurrentPos();
+	}
+	
+	
+	public void observationData(double dist, double theta) {
+		myMap.observationData(dist, theta);
 	}
 }

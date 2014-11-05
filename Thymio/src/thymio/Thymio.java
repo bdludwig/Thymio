@@ -174,6 +174,7 @@ public class Thymio {
 			ol = odomLeftMean.getMean();
 			or = odomRightMean.getMean();
 
+			//odomForward = secsElapsed*(odomLeft+odomRight)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds.
 			odomForward = secsElapsed*(ol+or)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds.
 			//odomRotation = Math.atan2(secsElapsed*(odomRight-odomLeft), BASE_WIDTH);
 			odomRotation = Math.atan2(secsElapsed*(or-ol)/SPEEDCOEFF, BASE_WIDTH);
@@ -213,6 +214,7 @@ public class Thymio {
 
 
 			myPanel.updatePoseGround(sensorData, this);
+			myPanel.observationData(odomForward, odomRotation);
 			myPanel.repaint();
 			
 			myInterface.updateSensorView(sensorData, myPanel.getSensorMapProbsLeft(), myPanel.getSensorMapProbRight());

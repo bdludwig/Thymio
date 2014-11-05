@@ -38,6 +38,8 @@ public class Map {
 	private double [] sensorMapProbsLeft;
 	private double [] sensorMapProbsRight;
 
+	private double obsX, obsY, obsTheta;
+
 	public static final int N = 20; // number of occupied elements
 	
 	private KalmanFilter posEstimate;
@@ -68,6 +70,10 @@ public class Map {
 		proxHorCoeffs.add(new Double(-1.829e-01));
 		
 		proxHorSensor = new SensorModel(proxHorCoeffs);
+		
+		obsX = Double.NaN;
+		obsY = Double.NaN;
+		obsTheta = Double.NaN;
 	}
 	
 	private void initFilter() {
@@ -153,8 +159,15 @@ public class Map {
 	public void setPose(double x, double y, double theta) {
 		posX = x;
 		posY = y;
+		
 		thymioTheta = theta;
 		estTheta = theta;
+		
+		if (Double.isNaN(obsX)) {
+			obsX = x;
+			obsY = y;
+			obsTheta = theta;
+		}
 		
 		initFilter();
 		
@@ -172,7 +185,7 @@ public class Map {
 		
 		DenseMatrix64F Gu = DenseMatrix64F.wrap(5, 1, delta);
 		
-		thymioTheta = thymioTheta + dR;
+		thymioTheta += dR;
 		posX += delta[0];
 		posY += delta[1];
 		
@@ -467,5 +480,24 @@ public class Map {
 
 	public double [] getSensorMapProbsRight() {
 		return sensorMapProbsRight;
+	}
+	
+	public double getObsX() {
+		return obsX;
+	}
+	
+	public double getObsY() {
+		return obsY;
+	}
+	
+	public double getObsTheta() {
+		return obsTheta;
+	}
+	
+	public void observationData(double dist, double theta) {
+		System.out.println(obsX + "/" + obsY + "/" + obsTheta);
+		obsX += Math.cos(obsTheta)*dist;
+		obsY += Math.sin(obsTheta)*dist;
+		obsTheta += theta;
 	}
 }
