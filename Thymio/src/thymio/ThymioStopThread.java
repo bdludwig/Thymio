@@ -12,6 +12,7 @@ public class ThymioStopThread extends Thread {
 	public void run() {
 		try {
 			Thread.sleep(stopAfterMsecs);
+			myThymio.setStopped();
 			myThymio.setSpeed((short)0, (short)0);
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block

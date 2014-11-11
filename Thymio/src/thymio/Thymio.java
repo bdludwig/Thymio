@@ -1,26 +1,23 @@
 package thymio;
 
-import java.awt.Color;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 
-import context.Coordinate;
-import context.MapElement;
-
 import main.Pathfinder;
 import math.MovingAverage;
-
 import observer.MapPanel;
-import observer.SensorPanel;
 import observer.ThymioInterface;
+import context.Coordinate;
+import context.MapElement;
 
 public class Thymio {
 	private short vleft;
 	private short vright;
+	private short vleftStored;
+	private short vrightStored;
 	private ThymioInterface myInterface;
 	private ThymioDrivingThread myControlThread;
 	private ThymioClient myClient;
@@ -31,12 +28,20 @@ public class Thymio {
 	private MovingAverage odomLeftMean;
 	private MovingAverage odomRightMean;
 	private Thread t;
+	private boolean paused;
 	
 	public static final double MAXSPEED = 500;
 	public static final double SPEEDCOEFF = 2.93;
 	public static final double BASE_WIDTH = 95;
 	public static final double VROTATION = 100;
 	public static final double STRAIGHTON = 150;
+	
+	private int state;
+
+	private final int ROTATION = 1;
+	private final int AHEAD = 2;
+	private final int BACK = 3;
+	private final int STOPPED = 4;
 	
 	public Thymio(MapPanel p, String host) {
 		vleft = vright = 0;
@@ -62,13 +67,20 @@ public class Thymio {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		
+		state = STOPPED;
+		paused = false;
 	}
 
+	public void setStopped() {
+		state = STOPPED;
+	}
+	
 	public ThymioInterface getInterface() {
 		return myInterface;
 	}
 	
-	public int getVLeft() {
+	public short getVLeft() {
 		return vleft;
 	}
 	
@@ -101,20 +113,19 @@ public class Thymio {
 		myClient.setSpeed(data);
 	}
 
-	public int getVRight() {
+	public short getVRight() {
 		return vright;
 	}
 
 	public synchronized void drive(double distCM) {
-		double dt;
-
-		if (distCM > 0) dt = 3/14.03541*distCM;
-		else dt = -3/14.81564*distCM;
+		double dt = 3/14.03541*distCM;
 
 		try {
 			this.wait();
 			this.setSpeed((short)(Math.signum(distCM)*STRAIGHTON), (short)(Math.signum(distCM)*STRAIGHTON));
 
+			state = (distCM > 0) ? AHEAD : BACK;
+			
 			t = new ThymioStopThread(this, (long)(dt*1000));
 			t.start();
 		} catch (InterruptedException e1) {
@@ -131,6 +142,9 @@ public class Thymio {
 			
 			this.wait();
 			this.setSpeed((short)(Math.signum(rad)*VROTATION), (short)(-Math.signum(rad)*VROTATION));
+			
+			state = ROTATION;
+			
 			t = new ThymioStopThread(this, (long)(dt*1000));
 			t.start();
 			System.out.println("rotating ...");
@@ -143,6 +157,8 @@ public class Thymio {
 	public synchronized void updatePose(long now) {
 		List<Short> sensorData;
 
+		if (paused) return;
+		
 		if (lastTimeStamp > Long.MIN_VALUE) {
 			long dt = now - lastTimeStamp;
 			double secsElapsed = ((double)dt)/1000.0;
@@ -174,25 +190,39 @@ public class Thymio {
 			ol = odomLeftMean.getMean();
 			or = odomRightMean.getMean();
 
-			//odomForward = secsElapsed*(odomLeft+odomRight)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds.
-			odomForward = secsElapsed*(ol+or)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds.
-			//odomRotation = Math.atan2(secsElapsed*(odomRight-odomLeft), BASE_WIDTH);
-			odomRotation = Math.atan2(secsElapsed*(or-ol)/SPEEDCOEFF, BASE_WIDTH);
-
-			distForward = (vleft+vright)/(2.0*10.0*SPEEDCOEFF)*secsElapsed;
+			distForward = secsElapsed*(vleft+vright)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds.
 			distRotation = Math.atan2(secsElapsed*(vright-vleft)/SPEEDCOEFF, BASE_WIDTH);
 
-			logData.print(odomForward + "\t" + distForward + "\t" + odomRotation + "\t" + distRotation + "\t");
+			if (state == STOPPED) {
+				odomForward = odomRotation = 0;
+			}
+			else if ((state == AHEAD) || (state == BACK)) {
+				if ((vleft != 0) && (vright !=0)) {
+					odomForward = secsElapsed*(odomLeft+odomRight)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds.
+					odomRotation = Math.atan2(secsElapsed*(odomRight-odomLeft), BASE_WIDTH);
+				}
+				else {
+					odomForward = 0;
+					odomRotation = 0;
+				}
+			}
+			else if (state == ROTATION) {
+				odomForward = secsElapsed*(ol+or)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds.
+				odomRotation = Math.atan2(secsElapsed*(or-ol)/SPEEDCOEFF, BASE_WIDTH);
+			}	
+			else {
+				System.out.println("UNKNOWN DRIVING STATE");
+				odomForward = secsElapsed*(ol+or)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds.
+				odomRotation = Math.atan2(secsElapsed*(or-ol)/SPEEDCOEFF, BASE_WIDTH);
+			}
 
-			
+			myPanel.observationData(odomForward, odomRotation);
 			myPanel.updatePose(distForward, distRotation,
-					(distForward != 0 ? odomForward : odomForward), (distRotation != 0 ? odomRotation : odomRotation),
+					odomForward, odomRotation,
 					secsElapsed);
-			/*
-			myPanel.updatePose(distForward, distRotation, distForward, distRotation, secsElapsed);
-			*/
+			
+			logData.print(odomForward + "\t" + distForward + "\t" + odomRotation + "\t" + distRotation + "\t");
 			logData.print(myPanel.getEstimPosX() + "\t" +myPanel.getEstimPosY());
-
 
 			proxHorizontal = myClient.getVariable("prox.horizontal");
 			myPanel.setProxHorizontal(proxHorizontal);
@@ -212,12 +242,9 @@ public class Thymio {
 			logData.print("\n");
 			logData.flush();
 
-
-			myPanel.updatePoseGround(sensorData, this);
-			myPanel.observationData(odomForward, odomRotation);
-			myPanel.repaint();
-			
 			myInterface.updateSensorView(sensorData, myPanel.getSensorMapProbsLeft(), myPanel.getSensorMapProbRight());
+			myPanel.updatePoseGround(sensorData, this);
+			myPanel.repaint();			
 		}
 
 		lastTimeStamp = now;
@@ -227,20 +254,37 @@ public class Thymio {
 		return t;
 	}
 	
+	public double getDirection() {
+		return Math.atan2((vright-vleft)/SPEEDCOEFF, BASE_WIDTH);
+	}
+	
 	private void driveUntil(int expectedColorLeft, int expectedColorRight, int direction, double intendedTheta, Coordinate p, Coordinate s) {
 		double [] probsLeft;
 		double [] probsRight;
 		MapElement c;
 		
 		System.out.println("NEXT COLORS: " + expectedColorLeft + "," + expectedColorRight);
+		state = (direction == 1) ? AHEAD : BACK;
 		this.setSpeed((short)(direction*STRAIGHTON), (short)(direction*STRAIGHTON));
 
 		do {
 			probsLeft = myInterface.getLeftValueProbs();
 			probsRight = myInterface.getRightValueProbs();
 
+
 			try {
-				Thread.sleep(ThymioDrivingThread.UPDATE_INTERVAL);
+				if (paused) while (paused) Thread.sleep(ThymioDrivingThread.UPDATE_INTERVAL);
+				else Thread.sleep(ThymioDrivingThread.UPDATE_INTERVAL);
+				
+				if (myPanel.correctingPosition()) {
+					System.out.println("CORRECTION");					
+					setSpeed((short)0, (short)0);		
+					
+					while (myPanel.correctingPosition()) Thread.sleep(ThymioDrivingThread.UPDATE_INTERVAL);
+					this.setSpeed((short)(direction*STRAIGHTON), (short)(direction*STRAIGHTON));
+					
+					System.out.println("CONTINUE driveUntil()");
+				}
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -280,5 +324,33 @@ public class Thymio {
 		Pathfinder myPath = new Pathfinder(myPanel.getMap(), start, goal);
 		myPath.findPath();
 		return myPath.getSolution();
+	}
+	
+	public boolean localizationProblemLeft() {
+		return myInterface.localizationProblemLeft();
+	}
+	
+	public boolean localizationProblemRight() {
+		return myInterface.localizationProblemRight();
+	}
+	
+	public boolean localizationProblemAhead() {
+		return myInterface.localizationProblemAhead();
+	}
+	
+	public void setPause(boolean p) {
+		paused = p;
+		if (paused) {
+			vleftStored = this.getVLeft();
+			vrightStored = this.getVRight();
+			this.setSpeed((short)0, (short)0);
+		}
+		else {
+			this.setSpeed(vleftStored, vrightStored);
+		}
+	}
+	
+	public boolean isPaused() {
+		return paused;
 	}
 }

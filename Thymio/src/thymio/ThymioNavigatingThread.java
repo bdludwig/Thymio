@@ -13,7 +13,7 @@ import main.Pathfinder;
 public class ThymioNavigatingThread extends Thread {
 	public final static int WHITE = 0;
 	public final static int BLACK = 1;
-	
+
 	private ArrayList<MapElement> controls;
 	private Thymio myThymio;
 	private MapPanel myPanel;
@@ -24,6 +24,12 @@ public class ThymioNavigatingThread extends Thread {
 		myPanel = p;
 	}
 
+	private void computeAttractiveForce(MapElement g) {
+		double diffVector [] = myPanel.getDistVectorTo(g, myPanel.getEstimPosX(), myPanel.getEstimPosY());
+		
+		System.out.println("attraction: " + diffVector[0] + "," + diffVector[1]);
+	}
+	
 	public void run() {
 		MapElement p;
 		MapElement s;
@@ -39,11 +45,12 @@ public class ThymioNavigatingThread extends Thread {
 			System.out.println("starting at: " + p + " to: " + s);
 			dX = s.getPosX() - p.getPosX();
 			dY = s.getPosY() - p.getPosY();
+			s.setGoal(true);
 			
 			currentTheta = myPanel.getOrientation();
 			intendedTheta = Math.atan2(dY,dX);
 			
-			if (Math.abs(currentTheta-intendedTheta) > 3.363389*Math.PI/180) {
+			if (Math.abs(currentTheta-intendedTheta) > 22.5*Math.PI/180) {
 				System.out.println("CHANGE DIRECTION: " + currentTheta + "/" + intendedTheta);
 				myThymio.setSpeed((short)0, (short)0);		
 				myThymio.rotate(currentTheta-intendedTheta);
@@ -56,6 +63,8 @@ public class ThymioNavigatingThread extends Thread {
 				}				
 			}
 
+			computeAttractiveForce(s);
+			
 			if (dX + dY > 0) {
 				int color;
 				
@@ -83,26 +92,8 @@ public class ThymioNavigatingThread extends Thread {
 				System.out.println("backwards complete. Go to next field.");
 			}
 			
-			MapElement e = myPanel.getCurrentPos();
-			if (!e.onPath()) {
-				ArrayList<MapElement> sol;
-				
-				System.out.println("REPLANNING: " + e + "/" + p);
-				myThymio.setSpeed((short)0, (short)0);
-
-				sol = myThymio.computePath(e, p);
-				if (sol == null) System.out.println("CANNOT REPLAN!");
-				else if (sol.size() == 0) System.out.println("SHOULD NOT HAPPEN.");
-				else {
-					for (int k = sol.size() - 1; k >= 0; k--) controls.add(i, sol.get(k));
-					System.out.println("PATH NOW:");
-					for (int k = 0; k < controls.size() - 2; k++) if (controls.get(k).onPath()) System.out.println(controls.get(k) + " --> " + controls.get(k+1)); 
-				}
-			}
-			else {
-				i++;
-				//e.setOnPath(false);
-			}
+			s.setGoal(false);
+			i++;
 		}
 		
 		for (i = 0; i < controls.size(); i++) controls.get(i).setOnPath(false);

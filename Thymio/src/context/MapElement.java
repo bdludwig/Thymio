@@ -12,6 +12,7 @@ public class MapElement {
 	
 	private boolean onBeam;			// set temporarily if the element is hit by infrared beam
 	private boolean onPath;			// set temporarily if the element is on the path to Thymio's destination
+	private boolean isGoal; 		// is this the location the robot is trying to reach currently?
 	private Color myColor;
 
 	private MapElement predecessor;
@@ -50,6 +51,9 @@ public class MapElement {
 		super();
 		this.id = id;
 		pos = new Coordinate(posX, posY);
+		isGoal = false;
+		occupied = false;
+		onPath = false;
 	}
 	
 	public MapElement(int id, int posX, int posY, boolean occupied) {
@@ -57,6 +61,16 @@ public class MapElement {
 		this.id = id;
 		pos = new Coordinate(posX, posY);
 		this.occupied = occupied;
+		onPath = false;
+		isGoal = false;
+	}
+
+	public boolean isGoal() {
+		return isGoal;
+	}
+	
+	public void setGoal(boolean state) {
+		isGoal = state;
 	}
 	
 	public void setOccupied(boolean occ) {

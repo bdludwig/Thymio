@@ -37,4 +37,8 @@ public class Coordinate {
 	public String toString() {
 		return x + "/" + y;
 	}
+	
+	public Coordinate getDiffVectorTo(Coordinate c) {
+		return new Coordinate(x - c.getX(), y - c.getY());
+	}
 }

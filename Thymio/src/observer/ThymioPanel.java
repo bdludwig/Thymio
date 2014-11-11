@@ -27,7 +27,7 @@ public class ThymioPanel extends JPanel implements ChangeListener, KeyListener, 
 	private ThymioInterface myUI;
 	private JSlider vForward, theta;
 	private JLabel valVelocity, valTheta;
-	private JButton stop, leftTurn, rightTurn, ahead, back/* moved, astern*/;
+	private JButton stop, leftTurn, rightTurn, ahead, back;
 	private SensorPanel mySensorView;
 	
 	public ThymioPanel(Thymio t, ThymioInterface ui) {
@@ -238,5 +238,17 @@ public class ThymioPanel extends JPanel implements ChangeListener, KeyListener, 
 	
 	public void setRightValueProbs(double [] p) {
 		mySensorView.setRightValueProbs(p);
+	}
+	
+	public boolean localizationProblemAhead() {
+		return mySensorView.localizationProblemAhead();
+	}
+	
+	public boolean localizationProblemLeft() {
+		return mySensorView.localizationProblemLeft();
+	}
+	
+	public boolean localizationProblemRight() {
+		return mySensorView.localizationProblemRight();
 	}
 }

@@ -32,6 +32,7 @@ public class MapPanel extends JPanel {
 	private AffineTransform standardTransf, poseTransform, sensorRot0, sensorRot1;
 	private double lastMaxProb;
 	private boolean correcting;
+	private int correctCycles;
 	private double thetaStd;
 	private short lastSpeedLeft, lastSpeedRight;
 	
@@ -50,6 +51,7 @@ public class MapPanel extends JPanel {
 		
 		lastSpeedLeft = 0;
 		lastSpeedRight = 0;
+		correctCycles = 1;
 	}
 
 	public Map getMap() {
@@ -78,9 +80,10 @@ public class MapPanel extends JPanel {
 		double maxProb;
 		double bestX = Double.NaN, bestY = Double.NaN, bestTheta = Double.NaN;
 		boolean updated;
+		boolean inverted;
 		
-		poseStdX = 2*Math.sqrt(myMap.getCovariance(0, 0))/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE;
-	    poseStdY = 2*Math.sqrt(myMap.getCovariance(1, 1))/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE;
+		poseStdX = (myThymio.localizationProblemAhead() ? 2.5 : 1)*correctCycles*Math.sqrt(myMap.getCovariance(0, 0))/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE;
+	    poseStdY = (myThymio.localizationProblemAhead() ? 1 : 2)*correctCycles*Math.sqrt(myMap.getCovariance(1, 1))/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE;
 	    
 		poseTransform = new AffineTransform();
 		poseTransform.translate(myMap.getEstimPosX()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE,
@@ -103,18 +106,37 @@ public class MapPanel extends JPanel {
 
 		correcting = (maxProb > 0);
 		if (correcting) {
-			thetaStd = 10*Math.sqrt(myMap.getCovariance(2, 2));
+			double lowerx, upperx;
+			double lowery, uppery;
+			
+			thetaStd = (myThymio.localizationProblemAhead() ? 0.25 : 0.33)*correctCycles*Math.sqrt(myMap.getCovariance(2, 2));
 			updated = false;
 			maxProb = Double.POSITIVE_INFINITY;
 
-			if (myThymio.getVLeft() != 0 && myThymio.getVRight() != 0) {
-				lastSpeedLeft = (short)myThymio.getVLeft();
-				lastSpeedRight = (short)myThymio.getVRight();
-				myThymio.setSpeed((short)0, (short)0);
-			}			
+			/**
+			 * restrict search space for position update according to knowledge from the map (where am I in the map?, which displacement
+			 * is plausible which one is not?
+			 */
 			
-			for (double x = uncertaintyBounds.getMinX(); x <= uncertaintyBounds.getMaxX(); x ++) {
-				for (double y = uncertaintyBounds.getMinY(); y <= uncertaintyBounds.getMaxY(); y ++) {
+			if (myThymio.localizationProblemRight()) lowerx = myMap.getEstimPosX()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE;
+			else lowerx = uncertaintyBounds.getMinX();
+			
+			if (myThymio.localizationProblemLeft()) upperx = myMap.getEstimPosX()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE;
+			else upperx = uncertaintyBounds.getMaxX();
+
+			if (myThymio.localizationProblemAhead() || myThymio.localizationProblemLeft() || myThymio.localizationProblemRight()) {
+				lowery =  this.getHeight() - myMap.getEstimPosY()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE;
+			}
+			else lowery = uncertaintyBounds.getMinY();
+			
+			uppery = uncertaintyBounds.getMaxY();
+			
+			/**
+			 * exhaustively sample the search space for a better position
+			 */
+			
+			for (double x = lowerx; x <= upperx; x ++) {
+				for (double y = lowery; y <= uppery; y ++) {
 					for (double dtheta = -thetaStd; dtheta <= thetaStd; dtheta += Math.PI/360) {
 						if (uncertaintyBounds.contains(x, y)) {
 							double p =  myMap.computeSensorProb(x, (double)this.getHeight() - y, dtheta,
@@ -123,7 +145,7 @@ public class MapPanel extends JPanel {
 									this.getGraphics(), this.getHeight(), false);
 							double apriori = myMap.posProbability(x, (double)this.getHeight() - y) +
 									myMap.rotationProbability(dtheta + myMap.getEstimOrientation());
-							//System.out.println("p: " + p + " - apriori pos: " + myMap.posProbability(x, y) + " - apriori rot: " + myMap.rotationProbabilty(dtheta));
+							//System.out.println("x: " + x + " y: " + y + " p: " + p + " - apriori pos: " + myMap.posProbability(x, y) + " - apriori rot: " + myMap.rotationProbability(myMap.getEstimOrientation() + dtheta));
 
 							if ((p + apriori) < maxProb) {
 								// update pose if it can better explain the sensor values.
@@ -141,14 +163,45 @@ public class MapPanel extends JPanel {
 				}
 			}
 
+			/**
+			 * correct the position given the best estimation in the search space
+			 */
+			
 			if (updated) {
+				double currX = myMap.getEstimPosX();
+				double currY = myMap.getEstimPosX();
+				double currTheta = myMap.getEstimOrientation();
+				double diffTheta;
+				double orientation;
+				double lengthPosDiff;
+				double displDir;
+				double displSide;
+				
+				double bestMapX = bestX*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE;
+				double bestMapY = bestY*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE;
+				
 				System.out.println("old position: (" + myMap.getEstimPosX() + "," + myMap.getEstimPosY() + "," + myMap.getEstimOrientation() + ")");
-				myMap.setPose(bestX*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE, bestY*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE, bestTheta);			
+				myMap.setPose(bestMapX, bestMapY, bestTheta);			
 				System.out.println("new position: (" + myMap.getEstimPosX() + "," + myMap.getEstimPosY() + "," + myMap.getEstimOrientation() + "):  apriori pos: " + myMap.posProbability(bestX, bestY) + " - apriori rot: " + myMap.rotationProbability(bestTheta));
-				myThymio.setSpeed(lastSpeedLeft, lastSpeedRight);
-			}			
+
+				System.out.println("direction: " + myThymio.getDirection());
+				diffTheta = myMap.getEstimOrientation() - currTheta;
+				orientation = (Math.cos(currTheta)*Math.cos(myMap.getEstimOrientation()) + Math.sin(currTheta)*Math.sin(myMap.getEstimOrientation()));
+				lengthPosDiff = Math.sqrt((myMap.getEstimPosX() - currX)*(myMap.getEstimPosX() - currX) + (myMap.getEstimPosY() - currY)*(myMap.getEstimPosY() - currY));
+				System.out.println("changed orientation (direction): " + (orientation > 0 ? "forward" : "backward"));
+				System.out.println("changed orientation (aside to) : " + (diffTheta > 0 ? "left" : "right"));
+				
+				displDir = Math.cos(currTheta)*(myMap.getEstimPosX() - currX) + Math.sin(currTheta)*(myMap.getEstimPosY() - currY)/lengthPosDiff;
+				displSide = -Math.sin(currTheta)*(myMap.getEstimPosX() - currX) + Math.cos(currTheta)*(myMap.getEstimPosY() - currY)/lengthPosDiff;
+						
+				System.out.println("changed position (direction): " + (displDir > 0 ? "forward" : "backward"));
+				System.out.println("changed position (aside to) : " + (displSide > 0 ? "left" : "right"));
+
+				correcting = false;
+				correctCycles = 1;
+			}
+			else correctCycles ++;
 		}
-		else if ((myThymio.getVLeft() == (short)0) && (myThymio.getVRight() == (short)0)) myThymio.setSpeed(lastSpeedLeft, lastSpeedRight);
 	}
 	
 	public void paint(Graphics g) {
@@ -210,6 +263,11 @@ public class MapPanel extends JPanel {
 				}
 				
 				g.fillRect(LENGTHSCALE*x, LENGTHSCALE*(posy-1), LENGTHSCALE, LENGTHSCALE);
+				
+				if (myMap.getElement(x, y).isGoal()) {
+					g.setColor(Color.WHITE);
+					g.fillArc((int)(LENGTHSCALE*(x + 0.5) - 4), (int)(LENGTHSCALE*(myMap.getSizeY() - (y + 0.5))  - 4), 8, 8, 0, 360);
+				}
 			}
 		}
 		
@@ -268,7 +326,7 @@ public class MapPanel extends JPanel {
 		g.drawLine((int)(ox), this.getHeight() - (int)(oy),
 				   (int)(ox + 10*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM*Math.cos(myMap.getObsTheta())),
                    this.getHeight() - (int)(oy + 10*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM*Math.sin(myMap.getObsTheta())));
-}
+	}
 	
 	public double getEstimPosX() {
 		return myMap.getEstimPosX();
@@ -294,8 +352,11 @@ public class MapPanel extends JPanel {
 		return myMap.getCurrentPos();
 	}
 	
-	
 	public void observationData(double dist, double theta) {
 		myMap.observationData(dist, theta);
+	}
+	
+	public double [] getDistVectorTo(MapElement l, double x, double y) {
+		return myMap.getDistVectorTo(l, x, y);
 	}
 }

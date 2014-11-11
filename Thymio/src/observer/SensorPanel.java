@@ -60,5 +60,29 @@ public class SensorPanel extends JPanel {
 			else g.setColor(Color.BLACK);
 
 			g.fillRect(this.getWidth()/2+1, this.getHeight()/2+1, this.getWidth()/2, this.getHeight()/2);
-		}}
+		}
+	}
+	
+	public boolean localizationProblemAhead() {
+		if (probsMapLeft != null && probsSensorValueLeft != null)
+			return (probsMapLeft[0] != probsSensorValueLeft[0]) && (probsMapRight[0] != probsSensorValueRight[0]);
+		else
+			return false;
+	}
+
+	
+	public boolean localizationProblemLeft() {
+		if (probsMapLeft != null && probsSensorValueLeft != null)
+			return (probsMapLeft[0] != probsSensorValueLeft[0]) && (probsMapRight[0] == probsSensorValueRight[0]);
+		else
+			return false;
+	}
+	
+	
+	public boolean localizationProblemRight() {
+		if (probsMapLeft != null && probsSensorValueLeft != null)
+			return (probsMapLeft[0] == probsSensorValueLeft[0]) && (probsMapRight[0] != probsSensorValueRight[0]);
+		else
+			return false;
+	}
 }

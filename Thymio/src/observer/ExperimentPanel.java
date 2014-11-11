@@ -30,6 +30,7 @@ public class ExperimentPanel extends JPanel implements ActionListener {
 	private JFrame myFrame;
 	private JButton setObstacles;
 	private JButton startRun;
+	private JButton pause;
 	
 	private ArrayList <String> occupied;
 	
@@ -40,14 +41,17 @@ public class ExperimentPanel extends JPanel implements ActionListener {
 		
 		this.setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
 
-		setObstacles = new JButton("Random Obstacles");
-		startRun = new JButton("Ready, Set, Go ...");
+		setObstacles = new JButton("Set Map");
+		startRun = new JButton("Ready, Set, Go!");
+		pause = new JButton("Wait!");
 		
 		startRun.addActionListener(this);
 		setObstacles.addActionListener(this);
+		pause.addActionListener(this);
 		
-		this.add(startRun);
 		this.add(setObstacles);
+		this.add(startRun);
+		this.add(pause);
 	}
 
 	@Override
@@ -62,6 +66,18 @@ public class ExperimentPanel extends JPanel implements ActionListener {
 		}
 		else if (e.getSource() == startRun) {
 			myThymio.driveAstarPath();
+		}
+		else if (e.getSource() == pause) {
+			if (myThymio.isPaused()) {
+				myThymio.setPause(false);
+				pause.setText("Wait!");
+			}
+			else {
+				myThymio.setPause(true);
+				pause.setText("Go on!");
+			}
+			
+			this.invalidate();
 		}
 	}	
 	
@@ -100,22 +116,26 @@ public class ExperimentPanel extends JPanel implements ActionListener {
 	}
 	
 	private void writeOccupied() throws IOException {
-		String filenameout="obstacles.csv";
-		FileWriter writer;
-		
-		System.out.println("Choose folder to create file");
-		JFileChooser c = new JFileChooser();
-		//c.setSelectedFile(new File(filenameout));
-		//c.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
-		c.showOpenDialog(this);
+		JFileChooser fileChooser = new JFileChooser();
+		fileChooser.setDialogTitle("Specify a file to save");
 
-		writer = new FileWriter(c.getSelectedFile(), true);
+		int userSelection = fileChooser.showSaveDialog(this);
+		if (userSelection == JFileChooser.APPROVE_OPTION) {
+			File fileToSave = fileChooser.getSelectedFile();
 
-		for(String s : occupied){
-			writer.append(s+"\n");
-			writer.flush();
+			FileWriter writer = null;
+
+			writer = new FileWriter(fileToSave,true);
+
+			for(String s : occupied){
+
+				writer.append(s+"\n");
+				writer.flush();
+
+
+			}
+			writer.close();
+			System.out.println("Save as file: " + fileToSave.getAbsolutePath());
 		}
-		
-		writer.close();
 	}
 }

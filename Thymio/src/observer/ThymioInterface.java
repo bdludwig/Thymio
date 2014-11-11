@@ -68,6 +68,18 @@ public class ThymioInterface extends JFrame {
 		this.repaint();
 	}
 	
+	public boolean localizationProblemLeft() {
+		return myPanel.localizationProblemLeft();
+	}	
+
+	public boolean localizationProblemRight() {
+		return myPanel.localizationProblemRight();
+	}
+	
+	public boolean localizationProblemAhead() {
+		return myPanel.localizationProblemAhead();
+	}
+	
 	public double [] getLeftValueProbs() {
 		return leftValueProbs;
 	}

@@ -89,11 +89,9 @@ public class Map {
 				            {0, 0, 0, 0},
 				            {0, 0, 0, 0}};
 */	
-		double [][] valF = {{1, 0, 0, 0, 0},
-				            {0, 1, 0, 0, 0},
-				            {0, 0, 1, 0, 0},
-				            {0, 0, 0, 0, 0},
-				            {0, 0, 0, 0, 0}};
+		double [][] valF = {{1, 0, 0},
+				            {0, 1, 0},
+				            {0, 0, 1}};
 		
 		F = new DenseMatrix64F(valF);
 		
@@ -114,12 +112,10 @@ public class Map {
 				            {0, 0, 0, 0}};
 		*/
 		
-		double [][] valQ = {{0.889258250, -0.117208306, 1.609542e-02, 0, 0},
-	            {-0.117208306, 0.341476440, -1.451464e-02, 0, 0},
-	            {0.01609542, -0.01451464,  2.702792e-05, 0, 0},
-	            {0, 0, 0, 0, 0},
-	            {0, 0, 0, 0, 0}};
-/*
+		double [][] valQ = {{0.0889258250, -0.0117208306, 1.609542e-04},
+	            {-0.0117208306, 0.0341476440, -1.451464e-04},
+	            {0.0001609542, -0.0001451464,  2.702792e-05}};
+		/*
 		double [][] valQ = {{0.0889258250, -0.0117208306, 1.609542e-04, 0, 0},
 				            {-0.0117208306, 0.0341476440, -1.451464e-04, 0, 0},
 				            {0.0001609542, -0.0001451464,  2.702792e-05, 0, 0},
@@ -133,23 +129,24 @@ public class Map {
 		/*
 		double [][] valR = {{0.1554881, 0.0007000067}, {0.0007000067, 0.01394959}};
 		*/
-		double [][] valR = {{0.1554881, 0.07000067}, {0.07000067, 0.01394959}};
+		double [][] valR = {{0.0889258250, -0.0117208306, 1.609542e-04},
+                            {-0.0117208306, 0.0341476440, -1.451464e-04},
+                            {1.609542e-04, 1.451464e-04,  0.01394959}};
+		
 		R = new DenseMatrix64F(valR);
 		
 		// initial state
 
-		double [][] valP = {{0, 0, 0, 0, 0},
-				            {0, 0, 0, 0, 0},
-				            {0, 0, 0, 0, 0},
-				            {0, 0, 0, 0, 0},
-				            {0, 0, 0, 0, 0}};
+		double [][] valP = {{0, 0, 0},
+				            {0, 0, 0},
+				            {0, 0, 0}};
 		P = new DenseMatrix64F(valP);
 		
-		double [] state = {posX, posY, thymioTheta, 0, 0};
+		double [] state = {posX, posY, thymioTheta};
 		
 		posEstimate = new KalmanFilter();
 		posEstimate.configure(F, Q);
-		posEstimate.setState(DenseMatrix64F.wrap(5, 1, state), P);
+		posEstimate.setState(DenseMatrix64F.wrap(3, 1, state), P);
 	}
 	
 	public double getEdgeLength() {
@@ -162,12 +159,10 @@ public class Map {
 		
 		thymioTheta = theta;
 		estTheta = theta;
-		
-		if (Double.isNaN(obsX)) {
-			obsX = x;
-			obsY = y;
-			obsTheta = theta;
-		}
+
+		obsX = x;
+		obsY = y;
+		obsTheta = theta;
 		
 		initFilter();
 		
@@ -175,15 +170,13 @@ public class Map {
 	}
 	
 	public void updatePose(double dF, double dR, double dFobs, double dRobs, double dt) {
-		double [] delta = new double[5];
+		double [] delta = new double[3];
 		
 		delta[0] = Math.cos(estTheta)*dF;
 		delta[1] = Math.sin(estTheta)*dF;
 		delta[2] = dR;
-		delta[3] = dF;
-		delta[4] = dR;
 		
-		DenseMatrix64F Gu = DenseMatrix64F.wrap(5, 1, delta);
+		DenseMatrix64F Gu = DenseMatrix64F.wrap(3, 1, delta);
 		
 		thymioTheta += dR;
 		posX += delta[0];
@@ -191,20 +184,17 @@ public class Map {
 		
 		// observation model
 		
-		double [][] valH = {{0, 0, 0, 0, 0}, {0, 0, 0, 0, 0}};
-		valH[0][3] = dt;
-		valH[1][4] = dt;
+		double [][] valH = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
+
 		DenseMatrix64F H = new DenseMatrix64F(valH);
 
 		// sensor values
 		
-		double [] speed = {dFobs/dt, dRobs/dt};
+		double [] observation = {obsX, obsY, obsTheta};
 		//double [] speed = {dF/dt, dR/dt};
 		
 		posEstimate.predict(Gu);
-		System.out.println(posEstimate.getState());
-		posEstimate.update(DenseMatrix64F.wrap(2, 1, speed), H, R);
-		System.out.println(posEstimate.getState());
+		posEstimate.update(DenseMatrix64F.wrap(3, 1, observation), H, R);
 		
 		DenseMatrix64F estimState = posEstimate.getState();
 		estPosX = estimState.get(0);
@@ -497,9 +487,17 @@ public class Map {
 	}
 	
 	public void observationData(double dist, double theta) {
-		System.out.println(obsX + "/" + obsY + "/" + obsTheta);
-		obsX += Math.cos(obsTheta)*dist;
-		obsY += Math.sin(obsTheta)*dist;
-		obsTheta += theta;
+		obsX = estPosX + Math.cos(obsTheta)*dist;
+		obsY = estPosY + Math.sin(obsTheta)*dist;
+		obsTheta = estTheta + theta;
+	}
+	
+	public double [] getDistVectorTo(MapElement l, double x, double y) {
+		double [] res = new double[2];
+		
+		res[0] = x - (l.getPosX() + 0.5)*MapPanel.LENGTH_EDGE_CM;
+		res[1] = y - (l.getPosY() + 0.5)*MapPanel.LENGTH_EDGE_CM;
+		
+		return res;
 	}
 }

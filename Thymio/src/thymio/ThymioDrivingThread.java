@@ -12,7 +12,7 @@ public class ThymioDrivingThread extends Thread {
 		while (true) {
 			try {
 				Thread.sleep(UPDATE_INTERVAL);
-				myThymio.updatePose(System.currentTimeMillis());
+				if (!myThymio.isPaused()) myThymio.updatePose(System.currentTimeMillis());
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
