@@ -64,8 +64,9 @@ public class SensorPanel extends JPanel {
 	}
 	
 	public boolean localizationProblemAhead() {
-		if (probsMapLeft != null && probsSensorValueLeft != null)
+		if (probsMapLeft != null && probsSensorValueLeft != null) {
 			return (probsMapLeft[0] != probsSensorValueLeft[0]) && (probsMapRight[0] != probsSensorValueRight[0]);
+		}
 		else
 			return false;
 	}

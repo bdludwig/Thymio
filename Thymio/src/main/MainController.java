@@ -9,6 +9,7 @@ import observer.ExperimentPanel;
 import observer.MapPanel;
 import observer.ThymioInterface;
 import thymio.Thymio;
+import thymio.ThymioMonitorThread;
 import context.Map;
 
 public class MainController extends JFrame {
@@ -19,6 +20,7 @@ public class MainController extends JFrame {
 	private MapPanel myPanel;
 	private ExperimentPanel exPanel;
 	private JPanel box;
+	private String host;
 	
 	public static final int MAPSIZE_X = 9;
 	public static final int MAPSIZE_Y = 21;
@@ -29,8 +31,9 @@ public class MainController extends JFrame {
 		myMap = new Map(MAPSIZE_X, MAPSIZE_Y, MapPanel.LENGTH_EDGE_CM);
 		myPanel = new MapPanel(myMap, this);
 		myThymio = new Thymio(myPanel, host);
-		observer = myThymio.getInterface();
-		exPanel = new ExperimentPanel(myMap, myThymio, this);
+		exPanel = new ExperimentPanel(myMap, myThymio, myPanel, this);
+
+		this.host = host;
 	}
 
 	public void init() {
@@ -40,32 +43,23 @@ public class MainController extends JFrame {
 		box.add(exPanel);
 		
 		myPanel.setPose(7.5*myMap.getEdgeLength(), myMap.getEdgeLength(), Math.PI/2);
-		
 		this.setContentPane(box);
 		this.pack();
 		this.setVisible(true);
 	}
 	
 	public void run() {
-		myPanel.repaint();
-		/*
-		myThymio.setSpeed((short)-150, (short)150);
-		try {
-			Thread.sleep(10000);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		*/
-		myThymio.setSpeed((short)0, (short)0);
+		(new Thread(myPanel)).start();
+		(new ThymioMonitorThread(myThymio)).start();
+		observer = myThymio.getInterface();
 	}
 
 	public static void main(String [] args) {
 		if (args.length == 1) {
 			MainController mc = new MainController(args[0]);
-		
-				mc.init();
-				mc.run();
+
+			mc.init();
+			mc.run();
 		}
 		else System.out.println("USAGE: MainController <HOSTNAME>");
 	}

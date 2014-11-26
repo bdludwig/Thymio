@@ -16,7 +16,10 @@ import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 
+import main.Pathfinder;
+
 import thymio.Thymio;
+import thymio.ThymioNavigatingThread;
 import context.Map;
 import context.MapElement;
 
@@ -26,6 +29,7 @@ public class ExperimentPanel extends JPanel implements ActionListener {
 	
 	private Map myMap;
 	private Thymio myThymio;
+	private MapPanel mapPanel;
 	
 	private JFrame myFrame;
 	private JButton setObstacles;
@@ -34,8 +38,9 @@ public class ExperimentPanel extends JPanel implements ActionListener {
 	
 	private ArrayList <String> occupied;
 	
-	public ExperimentPanel(Map m, Thymio t, JFrame f) {
+	public ExperimentPanel(Map m, Thymio t, MapPanel p, JFrame f) {
 		myMap = m;
+		mapPanel = p;
 		myFrame = f;
 		myThymio = t;
 		
@@ -65,7 +70,7 @@ public class ExperimentPanel extends JPanel implements ActionListener {
 			}
 		}
 		else if (e.getSource() == startRun) {
-			myThymio.driveAstarPath();
+			driveAstarPath();
 		}
 		else if (e.getSource() == pause) {
 			if (myThymio.isPaused()) {
@@ -81,6 +86,21 @@ public class ExperimentPanel extends JPanel implements ActionListener {
 		}
 	}	
 	
+	private void driveAstarPath() {
+		Pathfinder myPath = new Pathfinder(mapPanel.getMap(),
+				                           mapPanel.getCurrentPos(),
+				                           mapPanel.getMap().getElement(mapPanel.getMap().getSizeX() - 1, mapPanel.getMap().getSizeY() - 2));
+		ArrayList<MapElement> solution;
+		
+		myPath.findPath();
+		solution = myPath.getSolution();
+		
+		if (solution == null) System.out.println("NO PATH");
+		else if (solution.size() > 0) {
+			new ThymioNavigatingThread(myThymio, mapPanel, solution).start();
+		}
+		// else do nothing.
+	}
 	private void populateMapWithObstacles() throws IOException {
 		int dimX = myMap.getSizeX();
 		int dimY = myMap.getSizeY();

@@ -25,6 +25,7 @@ public class ThymioInterface extends JFrame {
 
 		myPanel = new ThymioPanel(c, this);
 		this.setContentPane(myPanel);
+		this.setLocation(500,0);
 		this.pack();
 		this.setVisible(true);
 	}

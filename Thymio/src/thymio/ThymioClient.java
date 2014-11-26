@@ -22,6 +22,8 @@ public class ThymioClient {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		
+		if (conn != null) System.out.println("connected to Thymio ...");
 	}
 
 	private void write(String message) throws IOException {
@@ -50,78 +52,67 @@ public class ThymioClient {
 						new InputStreamReader(
 								conn.getInputStream()));
 	}
-	
+
 	public synchronized void setVariable(String variable, List<Short> data) {		
-		synchronized (this) {
-			try {
-				String msg = "set " + variable;
+		try {
+			String msg = "set " + variable;
 
-				for (int i = 0; i < data.size(); i++) {
-					msg += " ";
-					msg += data.get(i).toString();
-				}
-
-				write(msg);
-				msg = read();
-				if (!msg.startsWith("ok:")) System.out.println(msg);
-			}
-			catch (IOException e) {
-				System.out.println("error while setVariable: " + e);
-				e.printStackTrace();
+			for (int i = 0; i < data.size(); i++) {
+				msg += " ";
+				msg += data.get(i).toString();
 			}
 
-			notify();
+			write(msg);
+			msg = read();
+			if ((msg == null) || !msg.startsWith("ok:")) System.out.println(msg);
+		}
+		catch (IOException e) {
+			System.out.println("error while setVariable: " + e);
+			e.printStackTrace();
 		}
 	}
 
 	public synchronized void setSpeed(List<Short> data) {
-		synchronized (this) {
-			try {
-				String msg = "setspeed";
+		try {
+			String msg = "setspeed";
 
-				for (int i = 0; i < data.size(); i++) {
-					msg += " ";
-					msg += data.get(i).toString();
-				}
-
-				write(msg);
-				msg = read();
-				if (!msg.startsWith("ok: ")) System.out.println(msg);
-			}
-			catch (IOException e) {
-				System.out.println("error while setSpeed: " + e);
-				e.printStackTrace();
+			for (int i = 0; i < data.size(); i++) {
+				msg += " ";
+				msg += data.get(i).toString();
 			}
 
-			notify();
+			write(msg);
+			msg = read();
+			if (!msg.startsWith("ok: ")) System.out.println(msg);
+		}
+		catch (IOException e) {
+			System.out.println("error while setSpeed: " + e);
+			e.printStackTrace();
 		}
 	}
 	
 	public synchronized List<Short> getVariable(String variable) {
-		synchronized (this) {
-			ArrayList<Short> res = new ArrayList<Short>();
+		ArrayList<Short> res = new ArrayList<Short>();
 
-			try {
-				String msg;
+		try {
+			String msg;
 
-				write("get " + variable);
-				msg = read();
-				if (msg.startsWith("ok: ")) {
-					String [] data = msg.substring(4).split(" ");
+			write("get " + variable);
+			msg = read();
+			if ((msg != null) && msg.startsWith("ok: ")) {
+				String [] data = msg.substring(4).split(" ");
 
-					for (int i = 0; i < data.length; i++) res.add(new Short(Short.parseShort(data[i])));
-				}
-				else {
-					System.out.println(msg);
-				}
+				for (int i = 0; i < data.length; i++) res.add(new Short(Short.parseShort(data[i])));
 			}
-			catch (IOException e) {
-				System.out.println("error while getVariable: " + e);
-				e.printStackTrace();
+			else {
+				System.out.println(msg);
 			}
-
-			notify();
-			return res;
 		}
+		catch (IOException e) {
+			System.out.println("error while getVariable: " + e);
+			e.printStackTrace();
+		}
+
+		return res;
 	}
 }

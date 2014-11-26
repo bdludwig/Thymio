@@ -138,7 +138,7 @@ public class ThymioPanel extends JPanel implements ChangeListener, KeyListener, 
 		synchronized (myThymio) {
 			try {
 				myThymio.wait();
-				myThymio.setSpeed((short)(v-angle), (short)(v+angle));
+				myThymio.setSpeed((short)(v-angle), (short)(v+angle), true);
 				myThymio.updatePose(System.currentTimeMillis());
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block

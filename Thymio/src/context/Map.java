@@ -3,23 +3,31 @@ package context;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Shape;
 import java.awt.geom.AffineTransform;
+import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
 import math.KalmanFilter;
+import math.Pose;
 import math.SensorModel;
 import observer.MapPanel;
 
 import org.ejml.data.DenseMatrix64F;
+import org.ejml.simple.SimpleMatrix;
+
+import thymio.Thymio;
 
 public class Map {
 	private int sizeX, sizeY; // number of elements in each direction 
 							  // used to get a discrete model of the environment
-	private int thymioX, thymioY; // coordinates of MapElement where Thymio is currently located on.
 	private double posX, posY; // current position of Thymio in real units
 	private double thymioTheta; // current orientation of Thymio in the global coordinate system
 	private double [] infraredDist;
@@ -31,6 +39,9 @@ public class Map {
 	private double edgelength; // each element in this maps covers edgelength^2 square units.
 	
 	private AffineTransform [] sensorRotation;
+	private AffineTransform poseTransform;
+
+	private Shape poseUncertainty;
 	private Rectangle2D sensorbox = new Rectangle2D.Double(-0.5*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM,
 			                                               -0.25*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM,
 			                                               MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM,
@@ -39,13 +50,45 @@ public class Map {
 	private double [] sensorMapProbsRight;
 
 	private double obsX, obsY, obsTheta;
+	private Pose bestPose;
+	
+	private double minSensorDist;
+	private int minSensorId;
+	private boolean correcting;
 
 	public static final int N = 20; // number of occupied elements
+	public static final double ANGLERANGE = Math.PI/8;
 	
 	private KalmanFilter posEstimate;
 	private SensorModel proxHorSensor;
 	private DenseMatrix64F R;
+	private DenseMatrix64F F;
+
 	
+	private double [][] valQ_ahead = {{0.0889258250, -0.0117208306, 1.609542e-04},
+            {-0.0117208306, 0.0341476440, -1.451464e-04},
+            {0.0001609542, -0.0001451464,  2.702792e-05}};
+/*
+	private double [][] valQ_ahead = {{0.0889258250, -0.117208306, 1.609542e-02},
+            {-0.117208306, 0.0341476440, -1.451464e-02},
+            {1.609542e-02, -1.451464e-02,  2.702792e-03}};
+	
+	private double [][] valQ_left = {{0, 0, 10},
+	{0, 0, 10},
+	{10, 10, 0.00287276}};
+	
+	private double [][] valQ_right = {{0, 0, 10},
+	{0, 0, 10},
+		{10, 10, 0.002554608}};
+	/*/
+	private double [][] valQ_left = {{0.03883038, -0.003296355, 0.009096681},
+	{-0.003296355, 0.006193314, -0.001209062},
+	{0.009096681, -0.001209062, 0.00287276}};
+	
+	private double [][] valQ_right = {{0.03631655, -0.0002997269, -0.007957954},
+	{-0.0002997269, 0.01249882, -0.0006557905},
+		{-0.007957954, -0.0006557905, 0.002554608}};
+
 	public Map(int x, int y, double l) {
 		edgelength = l;
 		sizeX = x;
@@ -77,18 +120,11 @@ public class Map {
 	}
 	
 	private void initFilter() {
-		DenseMatrix64F F;
 		DenseMatrix64F Q;
 		DenseMatrix64F P;
 		
 		// state transition
-		
-/*		
-		double [][] valF = {{1, 0, 0, 0},
-				            {0, 1, 0, 0},
-				            {0, 0, 0, 0},
-				            {0, 0, 0, 0}};
-*/	
+
 		double [][] valF = {{1, 0, 0},
 				            {0, 1, 0},
 				            {0, 0, 1}};
@@ -97,38 +133,11 @@ public class Map {
 		
 		// process noise
 
-		/*
-		double [][] valQ = {{0, 0, 0, 0, 0},
-	            {0, 0, 0, 0, 0},
-	            {0, 0, 0, 0, 0},
-	            {0, 0, 0, 0, 0},
-	            {0, 0, 0, 0, 0}};
-		*/
-
-		/*
-		double [][] valQ = {{0.0889258250, -0.0117208306, 0, 0},
-				            {-0.0117208306, 0.0341476440, 0, 0},
-				            {0, 0, 0, 0},
-				            {0, 0, 0, 0}};
-		*/
-		
-		double [][] valQ = {{0.0889258250, -0.0117208306, 1.609542e-04},
-	            {-0.0117208306, 0.0341476440, -1.451464e-04},
-	            {0.0001609542, -0.0001451464,  2.702792e-05}};
-		/*
-		double [][] valQ = {{0.0889258250, -0.0117208306, 1.609542e-04, 0, 0},
-				            {-0.0117208306, 0.0341476440, -1.451464e-04, 0, 0},
-				            {0.0001609542, -0.0001451464,  2.702792e-05, 0, 0},
-				            {0, 0, 0, 0, 0},
-				            {0, 0, 0, 0, 0}};
-*/
-		Q = new DenseMatrix64F(valQ);
+		Q = new DenseMatrix64F(valQ_ahead);
 		
 		
 		// sensor noise
-		/*
-		double [][] valR = {{0.1554881, 0.0007000067}, {0.0007000067, 0.01394959}};
-		*/
+
 		double [][] valR = {{0.0889258250, -0.0117208306, 1.609542e-04},
                             {-0.0117208306, 0.0341476440, -1.451464e-04},
                             {1.609542e-04, 1.451464e-04,  0.01394959}};
@@ -157,28 +166,45 @@ public class Map {
 		posX = x;
 		posY = y;
 		
+		while (theta > Math.PI) theta -= Math.PI;
 		thymioTheta = theta;
 		estTheta = theta;
 
+		//if (Double.isNaN(obsX)) {
 		obsX = x;
 		obsY = y;
 		obsTheta = theta;
+		//}
 		
 		initFilter();
-		
 		updateCurrentPos();
 	}
 	
-	public void updatePose(double dF, double dR, double dFobs, double dRobs, double dt) {
+	public void updatePose(double dF, double dR, double dFobs, double dRobs, double dt, int state) {
 		double [] delta = new double[3];
+		int k;
 		
 		delta[0] = Math.cos(estTheta)*dF;
 		delta[1] = Math.sin(estTheta)*dF;
 		delta[2] = dR;
 		
+		if (state == Thymio.ROTATION_LEFT) {
+			posEstimate.configure(F, new DenseMatrix64F(valQ_left));
+		}
+		else if (state == Thymio.ROTATION_RIGHT) {
+			posEstimate.configure(F, new DenseMatrix64F(valQ_right));
+		}
+		else {
+			posEstimate.configure(F, new DenseMatrix64F(valQ_ahead));
+		}
+		
 		DenseMatrix64F Gu = DenseMatrix64F.wrap(3, 1, delta);
 		
 		thymioTheta += dR;
+		
+		k = (int)(0.5*thymioTheta/Math.PI);
+		thymioTheta -= k*2*Math.PI;
+
 		posX += delta[0];
 		posY += delta[1];
 		
@@ -200,15 +226,14 @@ public class Map {
 		estPosX = estimState.get(0);
 		estPosY = estimState.get(1);
 		estTheta = estimState.get(2);
-
-		thymioX = (int)(estPosX/MapPanel.LENGTH_EDGE_CM);
-		thymioY = (int)(estPosY/MapPanel.LENGTH_EDGE_CM);
+		
+		k = (int)(0.5*estTheta/Math.PI);
+		estTheta -= k*2*Math.PI;
+		
+		posEstimate.getState().set(2, estTheta);
 	}
 	
 	private void updateCurrentPos() {
-		thymioX = (int)(posX/MapPanel.LENGTH_EDGE_CM);
-		thymioY = (int)(posY/MapPanel.LENGTH_EDGE_CM);
-		
 		estPosX = posX;
 		estPosY = posY;
 	}
@@ -331,10 +356,24 @@ public class Map {
 	}
 	
 	public void setProxHorizontal(List<Short> val) {
+		minSensorDist = Double.MAX_VALUE;
+		
 		for (int i = 0; i < val.size(); i++) {
 			infraredDist[i] = proxHorSensor.computeDistance(val.get(i).doubleValue());
 			if (infraredDist[i] < 0) infraredDist[i] = Double.MAX_VALUE;
-		}
+			else if (infraredDist[i] < minSensorDist) {
+				minSensorDist = infraredDist[i];
+				minSensorId = i;
+			}
+		}		
+	}
+	
+	public int getMinSensorId() {
+		return minSensorId;
+	}
+	
+	public double getMinSensorDist() {
+		return minSensorDist;
 	}
 	
 	public double getProxHorizontal(int sensorNo) {
@@ -349,25 +388,24 @@ public class Map {
 		}
 	}
 	
-	public double rotationProbability(double angle) {
-		double dist = angle - getEstimOrientation();
-		double sigma = getCovariance(2, 2);
-		
-		return dist*dist/(sigma == 0 ? 2.702792e-05 : sigma);
-	}
-	
-	public double posProbability(double x, double y) {
+	public double posProbability(double x, double y, double th) {
+		SimpleMatrix invCov = SimpleMatrix.wrap(posEstimate.getCovariance()).invert();
 		double distPredX = x*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE - getEstimPosX();
 		double distPredY = y*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE - getEstimPosY();
+		double distTh = th - getEstimOrientation();
+		double result;
 		
-		//System.out.println("dist X:" + distPredX + "/dist Y:" + distPredY);
-		return getCovariance(0,0)*distPredX*distPredX +
-				 2*getCovariance(0,1)*distPredX*distPredY +
-				 getCovariance(1,1)*distPredY*distPredY;
+		result = invCov.get(0,0)*distPredX*distPredX +
+				 2*invCov.get(0,1)*distPredX*distPredY +
+				 2*invCov.get(0,2)*distPredX*distTh +
+				 invCov.get(1,1)*distPredY*distPredY+
+				 2*invCov.get(1,2)*distPredY*distTh +
+				 invCov.get(2,2)*distTh*distTh;
+
+		return 0.5*result;
 	}
 	
 	private double [] computeSensorProb(int sensorid, double posX, double posY, double angle, Graphics g, int height) {
-		//AffineTransform tmp;
 		double sensorx = posX + 7.25*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM*Math.cos(angle+estTheta);
 		double sensory = posY + 7.25*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM*Math.sin(angle+estTheta);		
 		
@@ -409,10 +447,6 @@ public class Map {
 		//((Graphics2D)g).setTransform(tmp);
 
 		return probDist;
-	}
-	
-	public AffineTransform getSensorRotation(int sensorid) {
-		return sensorRotation[sensorid];
 	}
 	
 	public Rectangle2D getSensorBoundings() {
@@ -457,8 +491,8 @@ public class Map {
 			//System.out.println((int)x + "/" + (int)y + ": prob sensor 2 for " + val2 + ": " + sensorValDist[1] + "|" + sensorValDist[0] + "," + sensorValDist[1]);
 		}
 		
-		if (printDebug) {
-			System.out.println("EXP LINKS: " + ((sensorMapProbsLeft[0] > 0) ? "weiss" : "schwarz ") + " RECHTS: " + ((sensorMapProbsRight[0] > 0) ? "weiss" : "schwarz ") + " PROB: " + sensorProb);
+		if (printDebug && sensorProb < 1) {
+			System.out.println("EXP LINKS: " + ((sensorMapProbsLeft[0] > 0) ? "weiss" : "schwarz ") + " RECHTS: " + ((sensorMapProbsRight[0] > 0) ? "weiss" : "schwarz") + " PROB: " + sensorProb);
 			System.out.println("OBS LINKS: " + ((val1 > 300) ? "weiss" : "schwarz ") + " RECHTS: " + ((val2 > 300) ? "weiss" : "schwarz ") + " PROB: " + sensorProb);
 		}
 
@@ -487,9 +521,14 @@ public class Map {
 	}
 	
 	public void observationData(double dist, double theta) {
-		obsX = estPosX + Math.cos(obsTheta)*dist;
-		obsY = estPosY + Math.sin(obsTheta)*dist;
+		obsX = estPosX + Math.cos(estTheta)*dist;
+		obsY = estPosY + Math.sin(estTheta)*dist;
 		obsTheta = estTheta + theta;
+		/*
+		obsX += Math.cos(obsTheta)*dist;
+		obsY += Math.sin(obsTheta)*dist;
+		obsTheta += theta;
+		*/
 	}
 	
 	public double [] getDistVectorTo(MapElement l, double x, double y) {
@@ -499,5 +538,168 @@ public class Map {
 		res[1] = y - (l.getPosY() + 0.5)*MapPanel.LENGTH_EDGE_CM;
 		
 		return res;
+	}
+	
+	public boolean updatePoseGround(List<Short> sensorVal, Thymio myThymio, Graphics g, int height) {
+		Rectangle2D uncertaintyBounds;
+		double maxProb;
+		double bestX = Double.NaN, bestY = Double.NaN, bestTheta = Double.NaN;
+		boolean updated = false;
+		ArrayList<Pose> bestPositions;
+
+		poseTransform = new AffineTransform();
+		poseTransform.translate(this.getEstimPosX()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE,
+				height - (this.getEstimPosY()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE));
+		
+		//poseTransform.rotate(this.getEstimOrientation());
+		poseUncertainty = new Ellipse2D.Double(-0.5*MapPanel.LENGTHSCALE, -0.5*MapPanel.LENGTHSCALE, 1*MapPanel.LENGTHSCALE, 1*MapPanel.LENGTHSCALE);
+		uncertaintyBounds = poseTransform.createTransformedShape(poseUncertainty).getBounds2D();
+		
+		// init maxProb, sensorRot0, and sensorRot1 to values for predicted pose
+		
+		maxProb = this.computeSensorProb(this.getEstimPosX()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE,
+				                          this.getEstimPosY()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE,
+				                          0.0,
+				                          sensorVal.get(0), 0.155802,
+				                          sensorVal.get(1), -0.155802,
+				                          g, height, true);
+
+		correcting = (maxProb > 0);
+		if (correcting) {
+			double lowerx, upperx;
+			double lowery, uppery;
+			
+			myThymio.setSpeed((short)0, (short)0, false);
+			myThymio.setStopped();
+			
+			System.out.println("IS CORRECTING: " + maxProb + " for THETA: " + this.getEstimOrientation());
+
+			bestPositions = new ArrayList<Pose>();
+			updated = false;
+			
+			if (maxProb < Double.POSITIVE_INFINITY) {
+				double posProb = this.posProbability(this.getEstimPosX()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE,
+						height - this.getEstimPosY()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE,
+						this.getEstimOrientation());
+				bestPositions.add(new Pose(this.getEstimPosX()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE,
+						this.getEstimPosY()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE,
+						this.getEstimOrientation(),
+						maxProb, posProb,
+						sensorRotation[0],
+						sensorRotation[1]));
+				
+				maxProb += posProb;
+			}
+
+			/**
+			 * restrict search space for position update according to knowledge from the map (where am I in the map?, which displacement
+			 * is plausible which one is not?
+			 */
+			
+			lowerx = uncertaintyBounds.getMinX();
+			upperx = uncertaintyBounds.getMaxX();
+
+			lowery = uncertaintyBounds.getMinY();
+			uppery = uncertaintyBounds.getMaxY();
+			
+			/**
+			 * exhaustively sample the search space for a better position
+			 */
+			/*
+			try {
+				PrintStream gaussLog = new PrintStream(new File("gauss_log.csv"));
+				gaussLog.println("x\ty\ttheta\tsensor prob\tpos prob");
+			*/
+			for (double x = lowerx; x <= upperx; x ++) {
+				for (double y = lowery; y <= uppery; y ++) {
+					for (double dtheta = -ANGLERANGE; dtheta <= ANGLERANGE; dtheta += Math.PI/360) {
+						if (uncertaintyBounds.contains(x, y)) {
+							double p =  this.computeSensorProb(x, (double)height - y, dtheta,
+									sensorVal.get(0), 0.155802,
+									sensorVal.get(1), -0.155802,
+									g, height, false);
+							double apriori = this.posProbability(x, (double)height - y, dtheta + this.getEstimOrientation());
+
+							//gaussLog.println((x*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE) + "\t" + ((height - y)*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE) + "\t" + (dtheta + this.getEstimOrientation()) + "\t" + p + "\t" + apriori);
+
+							if ((p == 0) && ((p + apriori) < maxProb)) {
+								// update pose if it can better explain the sensor values.
+
+								bestPositions.clear();
+								
+								updated = true;
+								bestX = x;
+								bestY = height - y;
+								bestTheta = dtheta + this.getEstimOrientation();
+								maxProb = p + apriori;
+
+								bestPositions.add(new Pose(bestX*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE, bestY*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE, bestTheta, p, apriori, sensorRotation[0], sensorRotation[1]));
+							}
+							else if (((p + apriori) == maxProb) && (maxProb < Double.POSITIVE_INFINITY))
+								bestPositions.add(new Pose(bestX*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE,
+										          bestY*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE,
+										          bestTheta,
+										          p, apriori,
+										          sensorRotation[0],
+										          sensorRotation[1]));  
+						}
+					}
+				}				
+			}
+			/*
+			gaussLog.close();
+
+			} catch (FileNotFoundException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}*/
+			/**
+			 * correct the position given the best estimation in the search space
+			 */
+			
+			if (updated) {
+				double currX = this.getEstimPosX();
+				double currY = this.getEstimPosX();
+				double currTheta = this.getEstimOrientation();
+				double diffTheta;
+				double orientation;
+				double lengthPosDiff;
+				double displDir;
+				double displSide;
+				
+				double bestMapX = bestX*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE;
+				double bestMapY = bestY*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE;
+				
+				this.setPose(bestMapX, bestMapY, bestTheta);			
+				System.out.println("UPDATE TO POSE: " + bestPositions.get(bestPositions.size()-1));
+				bestPose = bestPositions.get(bestPositions.size()-1);
+
+				diffTheta = this.getEstimOrientation() - currTheta;
+				orientation = (Math.cos(currTheta)*Math.cos(this.getEstimOrientation()) + Math.sin(currTheta)*Math.sin(this.getEstimOrientation()));
+				lengthPosDiff = Math.sqrt((this.getEstimPosX() - currX)*(this.getEstimPosX() - currX) + (this.getEstimPosY() - currY)*(this.getEstimPosY() - currY));
+				System.out.print("UPDATE (direction): " + (orientation > 0 ? "forward" : "backward"));
+				System.out.print("\t(aside to) : " + (diffTheta > 0 ? "left" : "right"));
+				
+				displDir = Math.cos(currTheta)*(this.getEstimPosX() - currX) + Math.sin(currTheta)*(this.getEstimPosY() - currY)/lengthPosDiff;
+				displSide = -Math.sin(currTheta)*(this.getEstimPosX() - currX) + Math.cos(currTheta)*(this.getEstimPosY() - currY)/lengthPosDiff;
+						
+				System.out.print("\t(direction): " + (displDir > 0 ? "forward" : "backward"));
+				System.out.println("\t(aside to) : " + (displSide > 0 ? "left" : "right"));
+			}
+		}
+		
+		return updated;
+	}
+	
+	public Pose getBestPose() {
+		return bestPose;
+	}
+	
+	public Shape getPoseUncertainty() {
+		return poseUncertainty;
+	}
+	
+	public AffineTransform getPoseTransform() {
+		return poseTransform;
 	}
 }

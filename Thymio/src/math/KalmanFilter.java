@@ -79,6 +79,7 @@ public class KalmanFilter {
     }
 
     public DenseMatrix64F getCovariance() {
+    	if (P == null) System.out.println("DenseMatrix64F getCovariance(): NULL");
         return P.getMatrix();
     }
 }
