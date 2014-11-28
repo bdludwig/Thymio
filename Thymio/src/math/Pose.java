@@ -8,19 +8,14 @@ public class Pose {
 	private double theta;
 	private double evalSensor;
 	private double evalPosition;
-	private AffineTransform [] sensorRotation;
 	
-	public Pose(double x, double y, double theta, double evalSensor, double evalPosition, AffineTransform sensor0, AffineTransform sensor1) {
+	public Pose(double x, double y, double theta, double evalSensor, double evalPosition) {
 		super();
 		this.x = x;
 		this.y = y;
 		this.theta = theta;
 		this.evalSensor = evalSensor;
-		this.evalPosition = evalPosition;
-		
-		sensorRotation = new AffineTransform[2];
-		sensorRotation[0] = sensor0;
-		sensorRotation[1] = sensor1;		
+		this.evalPosition = evalPosition;	
 	}
 
 	public double getX() {
@@ -39,11 +34,15 @@ public class Pose {
 		return evalSensor + evalPosition;
 	}
 	
-	public String toString() {
-		return x + "\t" + y + "\t" + String.format("%+1.5f", theta) + "\t" + String.format("%+1.20f", evalPosition)+ "\t" + String.format("%+1.20f", evalSensor);
+	public double getEvalPos() {
+		return evalPosition;
 	}
 	
-	public AffineTransform getSensorRotation(int i) {
-		return sensorRotation[i];
+	public double getEvalSensor() {
+		return evalSensor;
+	}
+	
+	public String toString() {
+		return x + "\t" + y + "\t" + String.format("%+1.5f", theta) + "\t" + String.format("%+1.20f", evalPosition)+ "\t" + String.format("%+1.20f", evalSensor);
 	}
 }

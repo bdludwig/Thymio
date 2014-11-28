@@ -8,7 +8,11 @@ import java.util.List;
 
 import main.Pathfinder;
 import math.MovingAverage;
+import observer.BeliefPanel;
+import observer.EvalBeliefPanel;
 import observer.MapPanel;
+import observer.PositionBeliefPanel;
+import observer.SensorBeliefPanel;
 import observer.ThymioInterface;
 import context.Coordinate;
 import context.MapElement;
@@ -49,7 +53,7 @@ public class Thymio extends Thread {
 	public static final int BACK = 3;
 	public static final int STOPPED = 4;
 	
-	public Thymio(MapPanel p, String host) {
+	public Thymio(MapPanel p, PositionBeliefPanel bp, SensorBeliefPanel sp, EvalBeliefPanel ep, String host) {
 		vleft = vright = 0;
 		driving = false;
 		updating = false;
@@ -57,7 +61,7 @@ public class Thymio extends Thread {
 		
 		myPanel = p;
 		myClient = new ThymioClient(host);
-		myInterface = new ThymioInterface(this);
+		myInterface = new ThymioInterface(this, bp, sp, ep);
 		lastTimeStamp = Long.MIN_VALUE;
 		
 		odomLeftMean = new MovingAverage();
@@ -259,12 +263,13 @@ public class Thymio extends Thread {
 			}
 			else if ((state == AHEAD) || (state == BACK)) {
 				if ((vleft != 0) && (vright !=0)) {
-					/*
+					
 					odomForward = secsElapsed*(odomLeft+odomRight)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds.
 					odomRotation = -Math.atan2(secsElapsed*(odomRight-odomLeft), BASE_WIDTH);
-					*/
+					/*
 					odomForward = secsElapsed*(ol+or)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds.
 					odomRotation = Math.atan2(secsElapsed*(or-ol)/SPEEDCOEFF, BASE_WIDTH);
+					*/
 				}
 				else {
 					odomForward = 0;
@@ -350,13 +355,12 @@ public class Thymio extends Thread {
 			double length;
 			int sensDist = Math.abs(2-sensor);
 			
-			dist /= 10; // k_rep
 			
-			repulsionVector[0] = x/Math.pow(dist,4);
+			repulsionVector[0] = x/Math.pow(dist, 4);
 			repulsionVector[1] = y/Math.pow(dist, 4);
 			
 			length = Math.sqrt(repulsionVector[0]*repulsionVector[0]+repulsionVector[1]*repulsionVector[1]);
-			length *= Math.exp(-4*sensDist);
+			length *= 0.1*Math.exp(-8*sensDist);
 			
 			repulsionVector[0] *= length;
 			repulsionVector[1] *= length;

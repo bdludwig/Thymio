@@ -4,7 +4,11 @@ import javax.swing.BoxLayout;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 
+import observer.EvalBeliefPanel;
 import observer.ExperimentPanel;
+import observer.BeliefPanel;
+import observer.PositionBeliefPanel;
+import observer.SensorBeliefPanel;
 //import observer.ExperimentPanel;
 import observer.MapPanel;
 import observer.ThymioInterface;
@@ -29,10 +33,13 @@ public class MainController extends JFrame {
 		super("Map");
 		
 		myMap = new Map(MAPSIZE_X, MAPSIZE_Y, MapPanel.LENGTH_EDGE_CM);
+		myMap.getElement(7, 2).setOccupied(true);
 		myPanel = new MapPanel(myMap, this);
-		myThymio = new Thymio(myPanel, host);
+		myThymio = new Thymio(myPanel, new PositionBeliefPanel(myMap),
+									   new SensorBeliefPanel(myMap),
+									   new EvalBeliefPanel(myMap), host);
 		exPanel = new ExperimentPanel(myMap, myThymio, myPanel, this);
-
+		
 		this.host = host;
 	}
 
@@ -42,13 +49,14 @@ public class MainController extends JFrame {
 		box.add(myPanel);
 		box.add(exPanel);
 		
-		myPanel.setPose(7.5*myMap.getEdgeLength(), myMap.getEdgeLength(), Math.PI/2);
+		myPanel.setPose(7*myMap.getEdgeLength(), 1.5*myMap.getEdgeLength(), 0);
 		this.setContentPane(box);
 		this.pack();
 		this.setVisible(true);
 	}
 	
 	public void run() {
+		myPanel.setThymio(myThymio);
 		(new Thread(myPanel)).start();
 		(new ThymioMonitorThread(myThymio)).start();
 		observer = myThymio.getInterface();

@@ -1,17 +1,12 @@
 package observer;
 
-import java.awt.Dimension;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
-import java.util.ArrayList;
 import java.util.List;
 
+import javax.swing.BoxLayout;
 import javax.swing.JFrame;
+import javax.swing.JPanel;
 
 import thymio.Thymio;
-
-import main.MainController;
-
 
 public class ThymioInterface extends JFrame {
 	private double [] leftValueProbs;
@@ -20,13 +15,26 @@ public class ThymioInterface extends JFrame {
 	private static final long serialVersionUID = 1L;
 	private ThymioPanel myPanel;
 	
-	public ThymioInterface(Thymio c) {
+	public ThymioInterface(Thymio c, PositionBeliefPanel bp, SensorBeliefPanel sp, EvalBeliefPanel ep) {
 		super("Thymio");
+		
+		JPanel j = new JPanel();
+		j.setLayout(new BoxLayout(j, BoxLayout.Y_AXIS));
+		JPanel beliefPanel = new JPanel();
+		beliefPanel.setLayout(new BoxLayout(beliefPanel, BoxLayout.X_AXIS));
+		beliefPanel.add(bp);
+		beliefPanel.add(sp);
+		beliefPanel.add(ep);
+
 
 		myPanel = new ThymioPanel(c, this);
-		this.setContentPane(myPanel);
+		j.add(myPanel);
+		j.add(beliefPanel);
+		
+		this.setContentPane(j);
 		this.setLocation(500,0);
 		this.pack();
+		this.setPreferredSize(this.getSize());
 		this.setVisible(true);
 	}
 

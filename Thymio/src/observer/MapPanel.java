@@ -4,26 +4,16 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.Shape;
 import java.awt.geom.AffineTransform;
-import java.awt.geom.Ellipse2D;
-import java.awt.geom.Rectangle2D;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.PrintStream;
-import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 
 import thymio.Thymio;
-
 import context.Map;
 import context.MapElement;
 import context.Path;
-
-import math.Pose;
 
 public class MapPanel extends JPanel implements Runnable {
 	/**
@@ -31,6 +21,8 @@ public class MapPanel extends JPanel implements Runnable {
 	 */
 	private static final long serialVersionUID = 1L;
 	private Map myMap;
+	private Thymio myThymio;
+	
 	public static final int LENGTHSCALE = 35;
 	public static final double LENGTH_EDGE_CM = 17;
 	
@@ -43,6 +35,10 @@ public class MapPanel extends JPanel implements Runnable {
 		this.setMaximumSize(new Dimension(myMap.getSizeX()*LENGTHSCALE, myMap.getSizeY()*LENGTHSCALE));
 	}
 
+	public void setThymio(Thymio t) {
+		myThymio = t;
+	}
+	
 	public Map getMap() {
 		return myMap;
 	}
@@ -156,17 +152,6 @@ public class MapPanel extends JPanel implements Runnable {
 			((Graphics2D)g).fill(myMap.getPoseUncertainty());
 			((Graphics2D)g).setTransform(standardTransf);
 		}
-		
-/*		
-		if (myMap.getBestPose() != null) {
-			g.setColor(Color.MAGENTA);
-			((Graphics2D)g).setTransform(myMap.getBestPose().getSensorRotation(0));
-			((Graphics2D)g).fill(myMap.getSensorBoundings());
-			((Graphics2D)g).setTransform(myMap.getBestPose().getSensorRotation(1));
-			((Graphics2D)g).fill(myMap.getSensorBoundings());
-			((Graphics2D)g).setTransform(standardTransf);
-		}
-	*/	
 
 		double [] probs = myMap.getSensorMapProbsLeft();
 		if (probs != null) {
@@ -256,7 +241,11 @@ public class MapPanel extends JPanel implements Runnable {
 		while (true) {
 			try {
 				Thread.sleep(Thymio.UPDATE_INTERVAL);
-				this.repaint();
+
+				synchronized (this) {
+					this.repaint();
+					myThymio.getInterface().repaint();
+				}
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();

@@ -2,18 +2,14 @@ package context;
 
 import java.awt.Color;
 import java.awt.Graphics;
-import java.awt.Graphics2D;
+import java.awt.Rectangle;
 import java.awt.Shape;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 import math.KalmanFilter;
 import math.Pose;
@@ -51,7 +47,7 @@ public class Map {
 
 	private double obsX, obsY, obsTheta;
 	private Pose bestPose;
-	
+	private Pose [][] bestPoseAtPos;
 	private double minSensorDist;
 	private int minSensorId;
 	private boolean correcting;
@@ -409,6 +405,12 @@ public class Map {
 		double sensorx = posX + 7.25*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM*Math.cos(angle+estTheta);
 		double sensory = posY + 7.25*MapPanel.LENGTHSCALE/MapPanel.LENGTH_EDGE_CM*Math.sin(angle+estTheta);		
 		
+		double white = 0;
+		double black = 0;
+		
+		double probDist [] = new double[2];
+
+		/*
 		sensorRotation[sensorid] = new AffineTransform();
 		sensorRotation[sensorid].translate(sensorx, height - sensory);
 		sensorRotation[sensorid].rotate(estTheta + angle);
@@ -420,9 +422,7 @@ public class Map {
 		int lowery = (int)transformedbox.getMinY();
 		int uppery = (int)transformedbox.getMaxY();
 		int n = 0;
-		double white = 0;
-		double black = 0;
-		double probDist [] = new double[2];
+
 				
 		for (int i = lowerx; i <= upperx; i++) {
 			for (int j = lowery; j <= uppery; j++) {
@@ -441,8 +441,19 @@ public class Map {
 			}
 		}
 		
-		probDist[0] = white/n;
-		probDist[1] = black/n;
+		*/
+		
+		try {
+			MapElement e = element[(int)(sensorx/MapPanel.LENGTHSCALE)][(int)(sensory/MapPanel.LENGTHSCALE)];
+			
+			if (e.getColor().getRed() == 255 && e.getColor().getGreen() == 255 && e.getColor().getBlue() == 255) white = 1;
+			else black = 1;
+		}
+		catch (ArrayIndexOutOfBoundsException e) {
+			// ignore any eventual out of bounds issue
+		}
+		probDist[0] = white;
+		probDist[1] = black;
 		
 		//((Graphics2D)g).setTransform(tmp);
 
@@ -541,19 +552,23 @@ public class Map {
 	}
 	
 	public boolean updatePoseGround(List<Short> sensorVal, Thymio myThymio, Graphics g, int height) {
-		Rectangle2D uncertaintyBounds;
+		Rectangle uncertaintyBounds;
 		double maxProb;
 		double bestX = Double.NaN, bestY = Double.NaN, bestTheta = Double.NaN;
 		boolean updated = false;
 		ArrayList<Pose> bestPositions;
+		int centerX, centerY;
 
+		centerX = (int)(this.getEstimPosX()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE);
+		centerY = (int)(height - (this.getEstimPosY()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE));
+		
 		poseTransform = new AffineTransform();
 		poseTransform.translate(this.getEstimPosX()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE,
 				height - (this.getEstimPosY()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE));
 		
 		//poseTransform.rotate(this.getEstimOrientation());
 		poseUncertainty = new Ellipse2D.Double(-0.5*MapPanel.LENGTHSCALE, -0.5*MapPanel.LENGTHSCALE, 1*MapPanel.LENGTHSCALE, 1*MapPanel.LENGTHSCALE);
-		uncertaintyBounds = poseTransform.createTransformedShape(poseUncertainty).getBounds2D();
+		uncertaintyBounds = poseTransform.createTransformedShape(poseUncertainty).getBounds();
 		
 		// init maxProb, sensorRot0, and sensorRot1 to values for predicted pose
 		
@@ -566,8 +581,9 @@ public class Map {
 
 		correcting = (maxProb > 0);
 		if (correcting) {
-			double lowerx, upperx;
-			double lowery, uppery;
+			int lowerx, upperx;
+			int lowery, uppery;
+			int countx, county;
 			
 			myThymio.setSpeed((short)0, (short)0, false);
 			myThymio.setStopped();
@@ -581,12 +597,12 @@ public class Map {
 				double posProb = this.posProbability(this.getEstimPosX()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE,
 						height - this.getEstimPosY()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE,
 						this.getEstimOrientation());
-				bestPositions.add(new Pose(this.getEstimPosX()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE,
+				
+				bestPose = new Pose(this.getEstimPosX()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE,
 						this.getEstimPosY()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE,
 						this.getEstimOrientation(),
-						maxProb, posProb,
-						sensorRotation[0],
-						sensorRotation[1]));
+						maxProb, posProb);
+				bestPositions.add(bestPose);
 				
 				maxProb += posProb;
 			}
@@ -596,11 +612,11 @@ public class Map {
 			 * is plausible which one is not?
 			 */
 			
-			lowerx = uncertaintyBounds.getMinX();
-			upperx = uncertaintyBounds.getMaxX();
+			lowerx = (int)uncertaintyBounds.getMinX();
+			upperx = (int)uncertaintyBounds.getMaxX();
 
-			lowery = uncertaintyBounds.getMinY();
-			uppery = uncertaintyBounds.getMaxY();
+			lowery = (int)uncertaintyBounds.getMinY();
+			uppery = (int)uncertaintyBounds.getMaxY();
 			
 			/**
 			 * exhaustively sample the search space for a better position
@@ -610,10 +626,18 @@ public class Map {
 				PrintStream gaussLog = new PrintStream(new File("gauss_log.csv"));
 				gaussLog.println("x\ty\ttheta\tsensor prob\tpos prob");
 			*/
-			for (double x = lowerx; x <= upperx; x ++) {
-				for (double y = lowery; y <= uppery; y ++) {
+			
+			bestPoseAtPos = new Pose[MapPanel.LENGTHSCALE + 1][MapPanel.LENGTHSCALE + 1];
+
+			System.out.println("ARRAY: " + (upperx - lowerx));
+			countx = 0;
+			for (int x = lowerx; x < upperx; x ++) {
+				county = 0;
+				for (int y = lowery; y < uppery; y ++) {
+					bestPoseAtPos[countx][county] = null;
+					
 					for (double dtheta = -ANGLERANGE; dtheta <= ANGLERANGE; dtheta += Math.PI/360) {
-						if (uncertaintyBounds.contains(x, y)) {
+						if (Math.sqrt((x-centerX)*(x-centerX)+(y-centerY)*(y-centerY)) < 0.5*MapPanel.LENGTHSCALE) {
 							double p =  this.computeSensorProb(x, (double)height - y, dtheta,
 									sensorVal.get(0), 0.155802,
 									sensorVal.get(1), -0.155802,
@@ -623,6 +647,7 @@ public class Map {
 							//gaussLog.println((x*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE) + "\t" + ((height - y)*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE) + "\t" + (dtheta + this.getEstimOrientation()) + "\t" + p + "\t" + apriori);
 
 							if ((p == 0) && ((p + apriori) < maxProb)) {
+								Pose thisPose;
 								// update pose if it can better explain the sensor values.
 
 								bestPositions.clear();
@@ -633,18 +658,29 @@ public class Map {
 								bestTheta = dtheta + this.getEstimOrientation();
 								maxProb = p + apriori;
 
-								bestPositions.add(new Pose(bestX*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE, bestY*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE, bestTheta, p, apriori, sensorRotation[0], sensorRotation[1]));
+								thisPose = new Pose(bestX*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE, bestY*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE, bestTheta, p, apriori);
+								bestPositions.add(thisPose);
+								bestPoseAtPos[countx][county] = thisPose;
 							}
 							else if (((p + apriori) == maxProb) && (maxProb < Double.POSITIVE_INFINITY))
 								bestPositions.add(new Pose(bestX*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE,
 										          bestY*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE,
 										          bestTheta,
-										          p, apriori,
-										          sensorRotation[0],
-										          sensorRotation[1]));  
+										          p, apriori));
+							
+							if ((bestPoseAtPos[countx][county] == null) || (bestPoseAtPos[countx][county].getEvalPos() > apriori)) {
+								bestPoseAtPos[countx][county] = new Pose(x*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE,
+										                                 (height-y)*MapPanel.LENGTH_EDGE_CM/MapPanel.LENGTHSCALE,
+										                                 dtheta + this.getEstimOrientation(),
+										                                 p, apriori);
+							}
 						}
 					}
-				}				
+					
+					county ++;
+				}
+				
+				countx ++;
 			}
 			/*
 			gaussLog.close();
@@ -689,6 +725,10 @@ public class Map {
 		}
 		
 		return updated;
+	}
+	
+	public Pose [][] getBestPoses() {
+		return bestPoseAtPos;
 	}
 	
 	public Pose getBestPose() {

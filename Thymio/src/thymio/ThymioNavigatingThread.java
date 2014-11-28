@@ -1,14 +1,9 @@
 package thymio;
 
-import java.awt.Color;
 import java.util.ArrayList;
 
 import observer.MapPanel;
-import observer.ThymioInterface;
-
 import context.MapElement;
-
-import main.Pathfinder;
 
 public class ThymioNavigatingThread extends Thread {
 	public final static int WHITE = 0;
@@ -24,31 +19,43 @@ public class ThymioNavigatingThread extends Thread {
 		myPanel = p;
 	}
 
-	/*
-	public void run() {
-		synchronized (myThymio) {
-			while (myThymio.isUpdating() || myThymio.isPaused() || myThymio.isDriving()) {
-				System.out.println("wait for pose update to complete.");
-				try {
-					myThymio.wait();
-				} catch (InterruptedException e) {
-					continue;
-				}
-			}
+	private double [] attractiveForcesOfPath(int pos) {
+		int i = pos;
+		MapElement m1 = null, m2 = null, m3;
+		double [] res = new double[2];
+		
+		res[0] = res[1] = 0;
+		
+		while (i < controls.size() - 2) {
+			m1 = controls.get(i);
+			m2 = controls.get(i+1);
+			m3 = controls.get(i+2);
 			
-			myThymio.rotate(Math.PI/2);
+			System.out.println(m2.getPosX() + "," + m1.getPosX() + "," + m3.getPosX() + "," + m2.getPosX() + "|" + m2.getPosY() + "," + m1.getPosY() + "," + m3.getPosY() + "," + m2.getPosY());
+			System.out.println((m2.getPosX() - m1.getPosX()) + "," + (m3.getPosX() - m2.getPosX()) + "|" + (m2.getPosY() - m1.getPosY()) + "," + (m3.getPosY() - m2.getPosY()));
+			if ((m2.getPosX() - m1.getPosX()) != (m3.getPosX() - m2.getPosX()) && (m2.getPosY() - m1.getPosY()) != (m3.getPosY() - m2.getPosY())) break;
+			
+			i--;
 		}
+		
+		if (m2 == null) {
+			m1 = controls.get(pos);
+			m2 = controls.get(pos + 1);
+		}
+		
+		res[0] = (m2.getPosX() - m1.getPosX())*MapPanel.LENGTH_EDGE_CM*0.33;
+		res[1] = (m2.getPosY() - m1.getPosY())*MapPanel.LENGTH_EDGE_CM*0.33;
+		
+		System.out.println(res[0] + "/" + res[1]);
+		return res;
 	}
 	
-	*/
-
 	public void run() {
 		MapElement p;
 		MapElement s;
 
 		double dX, dY;
-		double intendedTheta;
-		double currentTheta;
+		double [] attr;
 		int i = 0;
 		
 		while (i < controls.size() - 1) {
@@ -59,20 +66,19 @@ public class ThymioNavigatingThread extends Thread {
 			dX = s.getPosX() - p.getPosX();
 			dY = s.getPosY() - p.getPosY();
 			s.setGoal(true);
-			intendedTheta = Math.atan2(dY,dX);
-			currentTheta = myPanel.getOrientation();
+			
+			attr = attractiveForcesOfPath(i);
 			
 			if (dX + dY > 0) {
 				int color;
 				
 				//myThymio.drive(16.5);
-				System.out.println("ahead: " + currentTheta + "/" + intendedTheta);
 				if (s.getColor().getRed() == 255 && s.getColor().getGreen() == 255 && s.getColor().getBlue() == 255)
 					color = WHITE;
 				else 
 					color = BLACK;
 
-				driveAheadUntil(color, color, intendedTheta, p, s);
+				driveAheadUntil(color, color, attr, p, s);
 				System.out.println("ahead complete. Go to next field.");
 				
 				s.setGoal(false);
@@ -80,7 +86,6 @@ public class ThymioNavigatingThread extends Thread {
 			}
 			else if (dX + dY < 0) {
 				int color;
-				System.out.println("back: " + currentTheta + "/" + intendedTheta);
 
 				if (s.getColor().getRed() == 255 && s.getColor().getGreen() == 255 && s.getColor().getBlue() == 255)
 					color = WHITE;
@@ -88,7 +93,7 @@ public class ThymioNavigatingThread extends Thread {
 					color = BLACK;
 				
 				//myThymio.drive(-16.5);
-				driveBackUntil(color, color, intendedTheta, p, s);
+				driveBackUntil(color, color, attr, p, s);
 				System.out.println("backwards complete. Go to next field.");
 
 				s.setGoal(false);
@@ -99,9 +104,9 @@ public class ThymioNavigatingThread extends Thread {
 		for (i = 0; i < controls.size(); i++) controls.get(i).setOnPath(false);
 	}
 	
-	private void driveUntil(int expectedColorLeft, int expectedColorRight, int direction, double intendedTheta, MapElement p, MapElement s) {
+	private void driveUntil(int expectedColorLeft, int expectedColorRight, int direction, double [] attr, MapElement p, MapElement s) {
 		MapElement c = myPanel.getCurrentPos();
-		double [] attrVector, repVector, corrVector = new double[2];
+		double [] repVector, corrVector = new double[2];
 		double length;
 		double rotationUpdate;
 
@@ -123,20 +128,19 @@ public class ThymioNavigatingThread extends Thread {
 				if (myThymio.poseUpdated()) {
 					System.out.println("pose updated. readjust navigation ...");
 					synchronized (myThymio) {
-						attrVector = myThymio.computeAttractiveForce(s);
 						repVector = myThymio.computeRepulsiveForces();
 
-						corrVector[0] = attrVector[0] + repVector[0];
-						corrVector[1] = attrVector[1] + repVector[1];
+						corrVector[0] = attr[0] + repVector[0];
+						corrVector[1] = attr[1] + repVector[1];
 
 						length = Math.sqrt(corrVector[0]*corrVector[0]+corrVector[1]*corrVector[1]);
 
 						rotationUpdate = Math.atan2(corrVector[1]/length, corrVector[0]/length);
 					}
+					System.out.println("FORCED ORIENTATION : " + Math.atan2(corrVector[1]/length, corrVector[0]/length));
 
 					if (Math.abs(rotationUpdate-myPanel.getOrientation()) >= Math.PI/90) {
 						System.out.println("FORCE: " + corrVector[0] + "," + corrVector[1]);
-						System.out.println("FORCED ORIENTATION : " + Math.atan2(corrVector[1]/length, corrVector[0]/length));
 						System.out.println("CURRENT ORIENTATION: " + myPanel.getOrientation());
 
 						if (!myThymio.isPaused()) myThymio.rotate(rotationUpdate);
@@ -150,13 +154,12 @@ public class ThymioNavigatingThread extends Thread {
 				repVector = myThymio.computeRepulsiveForces();
 				if ((repVector[0] != 0) || (repVector[1] != 0)) {
 					double angle;
-					attrVector = myThymio.computeAttractiveForce(s);
-					corrVector[0] = attrVector[0] + repVector[0];
-					corrVector[1] = attrVector[1] + repVector[1];
+					corrVector[0] = repVector[0];
+					corrVector[1] = repVector[1];
 
 					length = Math.sqrt(corrVector[0]*corrVector[0]+corrVector[1]*corrVector[1]);
 					rotationUpdate = Math.atan2(corrVector[1]/length, corrVector[0]/length);
-					angle = myPanel.getOrientation() - Math.PI/36*Math.signum(rotationUpdate);
+					angle = myPanel.getOrientation() - Math.PI/36*Math.signum(rotationUpdate + myPanel.getOrientation());
 					
 					if (Math.abs(angle) >= Math.PI/90) {
 						System.out.println("AVOIDING obstacle: " + rotationUpdate + " at sensor: " + myPanel.getMinSensorId());
@@ -176,11 +179,11 @@ public class ThymioNavigatingThread extends Thread {
 		while (c.getID() != s.getID());
 	}
 
-	public void driveAheadUntil(int expectedColorLeft, int expectedColorRight, double intendedTheta, MapElement p, MapElement s) {
-		driveUntil(expectedColorLeft, expectedColorRight, 1, intendedTheta, p, s);
+	public void driveAheadUntil(int expectedColorLeft, int expectedColorRight, double [] attr, MapElement p, MapElement s) {
+		driveUntil(expectedColorLeft, expectedColorRight, 1, attr, p, s);
 	}
 
-	public void driveBackUntil(int expectedColorLeft, int expectedColorRight, double intendedTheta, MapElement p, MapElement s) {
-		driveUntil(expectedColorLeft, expectedColorRight, -1, -intendedTheta, p, s);	
+	public void driveBackUntil(int expectedColorLeft, int expectedColorRight, double [] attr, MapElement p, MapElement s) {
+		driveUntil(expectedColorLeft, expectedColorRight, -1, attr, p, s);	
 	}
 }
