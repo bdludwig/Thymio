@@ -10,15 +10,21 @@ public class ThymioMonitorThread extends Thread {
 	public void run() {
 		try {
 			while (true) {
-				synchronized (myThymio) {
-					while (myThymio.isPaused()) {
-						System.out.println("wait for driving operation to complete.");
-						myThymio.wait();
+				if (myThymio.isPaused()) {
+					synchronized (myThymio) {
+						while (myThymio.isPaused()) {
+							System.out.println("wait for driving operation to complete.");
+							myThymio.wait();
+						}					
 					}
-					
-					myThymio.updatePose(System.currentTimeMillis());
+				}
+				else if (myThymio.getTimerThread() != null) {
+					synchronized (myThymio.getTimerThread()) {
+						myThymio.getTimerThread().join();
+					}
 				}
 				
+				myThymio.updatePose(System.currentTimeMillis());
 				Thread.sleep(Thymio.UPDATE_INTERVAL);
 			}
 		} catch (InterruptedException e) {

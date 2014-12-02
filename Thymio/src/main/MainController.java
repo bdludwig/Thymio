@@ -33,7 +33,8 @@ public class MainController extends JFrame {
 		super("Map");
 		
 		myMap = new Map(MAPSIZE_X, MAPSIZE_Y, MapPanel.LENGTH_EDGE_CM);
-		myMap.getElement(7, 2).setOccupied(true);
+		myMap.getElement(5, 2).setOccupied(true);
+		myMap.getElement(7, 1).setOccupied(true);
 		myPanel = new MapPanel(myMap, this);
 		myThymio = new Thymio(myPanel, new PositionBeliefPanel(myMap),
 									   new SensorBeliefPanel(myMap),
@@ -49,7 +50,7 @@ public class MainController extends JFrame {
 		box.add(myPanel);
 		box.add(exPanel);
 		
-		myPanel.setPose(7*myMap.getEdgeLength(), 1.5*myMap.getEdgeLength(), 0);
+		myPanel.setPose(5*myMap.getEdgeLength(), 1.5*myMap.getEdgeLength(), 0);
 		this.setContentPane(box);
 		this.pack();
 		this.setVisible(true);

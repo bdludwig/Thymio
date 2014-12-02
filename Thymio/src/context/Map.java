@@ -53,7 +53,7 @@ public class Map {
 	private boolean correcting;
 
 	public static final int N = 20; // number of occupied elements
-	public static final double ANGLERANGE = Math.PI/8;
+	public static final double ANGLERANGE = Math.PI/4;
 	
 	private KalmanFilter posEstimate;
 	private SensorModel proxHorSensor;
@@ -587,6 +587,7 @@ public class Map {
 			
 			myThymio.setSpeed((short)0, (short)0, false);
 			myThymio.setStopped();
+			myThymio.setDriving(false);
 			
 			System.out.println("IS CORRECTING: " + maxProb + " for THETA: " + this.getEstimOrientation());
 
@@ -629,7 +630,6 @@ public class Map {
 			
 			bestPoseAtPos = new Pose[MapPanel.LENGTHSCALE + 1][MapPanel.LENGTHSCALE + 1];
 
-			System.out.println("ARRAY: " + (upperx - lowerx));
 			countx = 0;
 			for (int x = lowerx; x < upperx; x ++) {
 				county = 0;

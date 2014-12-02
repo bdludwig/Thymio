@@ -32,7 +32,7 @@ public class Thymio extends Thread {
 	private List<Short> proxHorizontal;
 	private MovingAverage odomLeftMean;
 	private MovingAverage odomRightMean;
-	private Thread t;
+	private Thread timerThread;
 	private boolean paused;
 	private boolean driving;
 	private boolean updating;
@@ -83,6 +83,14 @@ public class Thymio extends Thread {
 		paused = false;
 	}
 
+	public int getThymioState() {
+		return state;
+	}
+	
+	public boolean isRotating() {
+		return driving && (state == ROTATION_LEFT || state == ROTATION_RIGHT);
+	}
+	
 	public boolean isDriving() {
 		return driving;
 	}
@@ -143,7 +151,7 @@ public class Thymio extends Thread {
 	}
 
 	public void drive(boolean ahead) {
-		System.out.println("driving straight on ...: " + paused);
+		System.out.println("driving straight on: " + myPanel.getOrientation());
 
 		if (paused) return;
 		else driving = true;
@@ -151,8 +159,6 @@ public class Thymio extends Thread {
 
 		state = (ahead ? AHEAD : BACK);
 		this.setSpeed((short)((ahead ? 1 : -1)*STRAIGHTON), (short)((ahead ? 1 : -1)*STRAIGHTON), true);
-
-		driving = false;
 	}
 	
 	public synchronized void drive(double distCM) {
@@ -177,6 +183,7 @@ public class Thymio extends Thread {
 
 			this.setStopped();
 			this.setSpeed((short)0, (short)0, true);
+			this.setDriving(false);
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -186,36 +193,44 @@ public class Thymio extends Thread {
 		this.notifyAll();
 	}
 
+	public Thread getTimerThread() {
+		return timerThread;
+	}
+	
 	public void rotate(double rad) {
 		double dt;
 		double theta;
 		int k;
-		
-		synchronized (this) {
-			this.setDriving(true);
-			this.setSpeed((short)0, (short)0, true);
 
-			theta = myPanel.getOrientation();
-			theta -= rad;
+		this.setDriving(false);
+		this.setSpeed((short)0, (short)0, true);
+		this.setStopped();
+		this.setDriving(true);
 
-			k = (int)(0.5*theta/Math.PI);
-			theta -= k*2*Math.PI;
+		theta = myPanel.getOrientation();
+		theta -= rad;
 
-			//dt = (Math.abs((theta-rad)*180/Math.PI)-1.09)/(0.36*VROTATION); /*Thymio's personal constant */; // secs needed for rotation
+		k = (int)(0.5*theta/Math.PI);
+		theta -= k*2*Math.PI;
 
-			if (theta > 0) {
-				state = ROTATION_RIGHT;
-				dt = theta/0.935328;
-			}
-			else {
-				state = ROTATION_LEFT;
-				dt = -theta/0.9153185;
-			}
+		//dt = (Math.abs((theta-rad)*180/Math.PI)-1.09)/(0.36*VROTATION); /*Thymio's personal constant */; // secs needed for rotation
 
-			System.out.println("set dt: " + dt + " for " + theta + " (current theta: " + myPanel.getOrientation() + ")");
+		if (theta > 0) {
+			state = ROTATION_RIGHT;
+			//dt = theta/0.935328;
+			dt = theta/0.975328;
+		}
+		else {
+			state = ROTATION_LEFT;
+			//dt = -theta/0.9153185;
+			dt = -theta/0.975328;
 		}
 
-		new ThymioTimerThread(this, (long)(dt*1000), (short)(Math.signum(theta)*VROTATION), (short)(-Math.signum(theta)*VROTATION)).start();
+		System.out.println("set dt: " + dt + " for " + theta + " (current theta: " + myPanel.getOrientation() + ")");
+
+		this.setSpeed((state == ROTATION_LEFT ? -VROTATION : VROTATION), (state == ROTATION_LEFT ? VROTATION : -VROTATION), true);
+		timerThread = new ThymioTimerThread((long)(dt*1000), this);
+		timerThread.start();
 	}
 
 	public synchronized void updatePose(long now) {
@@ -282,27 +297,32 @@ public class Thymio extends Thread {
 				distRotation = ((0.36*VROTATION*((state == ROTATION_LEFT) ? 1 : -1)*secsElapsed+1.09)/180*Math.PI);
 				*/
 				odomForward = 0;
-				odomRotation = ((0.36*VROTATION*((state == ROTATION_LEFT) ? 1 : -1)*secsElapsed+1.09)/180*Math.PI);
+				//odomForward = secsElapsed*(odomLeft+odomRight)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds
+				//odomRotation = ((0.36*VROTATION*((state == ROTATION_LEFT) ? 1 : -1)*secsElapsed+1.09)/180*Math.PI);
 
-				/*
+				
 				if (state == ROTATION_RIGHT) {
-					odomRotation = -secsElapsed*0.935328;
+					odomRotation = -secsElapsed*0.975328;
 				}
 				else {
-					odomRotation = secsElapsed*0.9153185;
+					odomRotation = secsElapsed*0.975328;
 				}
-				
+	/*
 				odomForward = secsElapsed*(ol+or)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds.
 				odomRotation = Math.atan2(secsElapsed*(or-ol)/SPEEDCOEFF, BASE_WIDTH);
 				
 				odomForward = secsElapsed*(odomLeft+odomRight)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds
 				odomRotation = Math.atan2(secsElapsed*(odomRight-odomLeft), BASE_WIDTH);
-*/				
+			
 				//odomRotation = Math.atan2(secsElapsed*(odomRight-odomLeft), BASE_WIDTH);
 				//odomRotation = Math.atan2(secsElapsed*(or-ol)/SPEEDCOEFF, BASE_WIDTH);
-				//odomRotation = Math.atan2(secsElapsed*(vright-vleft)/SPEEDCOEFF, BASE_WIDTH);
+				 
+			
+				odomForward = secsElapsed*(vleft+vright)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds
 				
-				System.out.println("rotate: " + state + " dR: " + odomRotation + " driving: " + driving);
+					odomRotation = Math.atan2(secsElapsed*(vright-vleft)/SPEEDCOEFF, BASE_WIDTH);
+				*/
+				System.out.println("rotate: " + state + " dR: " + odomRotation + " driving: " + this.isRotating() + " vleft: " + vleft + " vright: " + vright + " secs: " + secsElapsed);
 			}	
 			else {
 				System.out.println("UNKNOWN DRIVING STATE");
@@ -322,7 +342,7 @@ public class Thymio extends Thread {
 			sensorData = myClient.getVariable("prox.ground.reflected");
 
 			myInterface.updateSensorView(sensorData, myPanel.getSensorMapProbsLeft(), myPanel.getSensorMapProbsRight());
-			if (state != ROTATION_LEFT && state != ROTATION_RIGHT) poseUpdated = myPanel.updatePoseGround(sensorData, this);
+			/*if (state != ROTATION_LEFT && state != ROTATION_RIGHT) */poseUpdated = myPanel.updatePoseGround(sensorData, this);
 			
 			updating = false;
 		}
