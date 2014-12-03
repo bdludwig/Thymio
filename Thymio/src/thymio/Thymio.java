@@ -233,116 +233,124 @@ public class Thymio extends Thread {
 		timerThread.start();
 	}
 
-	public synchronized void updatePose(long now) {
+	public synchronized void updateKalmanEstimation(long now) {
+		long dt = now - lastTimeStamp;
+		double secsElapsed = ((double)dt)/1000.0;
+		double distForward; // distance passed in secsElpased in forward direction of the robot
+		double distRotation; // angle covered in secsElapsed around Thymio's center
+		short odomLeft = Short.MIN_VALUE, odomRight = Short.MIN_VALUE;
+		double ol, or;
+		double odomForward;
+		double odomRotation;
+		List<Short> sensorData;
+		
+		sensorData = myClient.getVariable("motor.left.speed");
+		if (sensorData.size() > 0) odomLeft = sensorData.get(0);
+		else System.out.println("no data for motor.left.speed");
+
+		sensorData = myClient.getVariable("motor.right.speed");
+		if (sensorData.size() > 0) odomRight = sensorData.get(0);
+		else System.out.println("no data for motor.right.speed");
+
+
+		if (odomLeft == Short.MIN_VALUE || odomRight == Short.MIN_VALUE) return;
+
+		odomLeftMean.addValue(odomLeft);
+		odomRightMean.addValue(odomRight);
+
+		ol = odomLeftMean.getMean();
+		or = odomRightMean.getMean();
+
+		distForward = secsElapsed*(vleft+vright)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds.
+		distRotation = Math.atan2(secsElapsed*(vright-vleft)/SPEEDCOEFF, BASE_WIDTH);
+
+		if (state == STOPPED) {
+			odomForward = odomRotation = 0;
+		}
+		else if ((state == AHEAD) || (state == BACK)) {
+			if ((vleft != 0) && (vright !=0)) {
+				
+				odomForward = secsElapsed*(odomLeft+odomRight)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds.
+				odomRotation = -Math.atan2(secsElapsed*(odomRight-odomLeft), BASE_WIDTH);
+				/*
+				odomForward = secsElapsed*(ol+or)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds.
+				odomRotation = Math.atan2(secsElapsed*(or-ol)/SPEEDCOEFF, BASE_WIDTH);
+				*/
+			}
+			else {
+				odomForward = 0;
+				odomRotation = 0;
+			}
+		}
+		else if (state == ROTATION_LEFT || state == ROTATION_RIGHT) {
+			/*
+			distForward = 0;
+			distRotation = ((0.36*VROTATION*((state == ROTATION_LEFT) ? 1 : -1)*secsElapsed+1.09)/180*Math.PI);
+			*/
+			odomForward = 0;
+			//odomForward = secsElapsed*(odomLeft+odomRight)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds
+			//odomRotation = ((0.36*VROTATION*((state == ROTATION_LEFT) ? 1 : -1)*secsElapsed+1.09)/180*Math.PI);
+
+			
+			if (state == ROTATION_RIGHT) {
+				odomRotation = -secsElapsed*0.975328;
+			}
+			else {
+				odomRotation = secsElapsed*0.975328;
+			}
+/*
+			odomForward = secsElapsed*(ol+or)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds.
+			odomRotation = Math.atan2(secsElapsed*(or-ol)/SPEEDCOEFF, BASE_WIDTH);
+			
+			odomForward = secsElapsed*(odomLeft+odomRight)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds
+			odomRotation = Math.atan2(secsElapsed*(odomRight-odomLeft), BASE_WIDTH);
+		
+			//odomRotation = Math.atan2(secsElapsed*(odomRight-odomLeft), BASE_WIDTH);
+			//odomRotation = Math.atan2(secsElapsed*(or-ol)/SPEEDCOEFF, BASE_WIDTH);
+			 
+		
+			odomForward = secsElapsed*(vleft+vright)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds
+			
+				odomRotation = Math.atan2(secsElapsed*(vright-vleft)/SPEEDCOEFF, BASE_WIDTH);
+			*/
+			System.out.println("rotate: " + state + " dR: " + odomRotation + " driving: " + this.isRotating() + " vleft: " + vleft + " vright: " + vright + " secs: " + secsElapsed);
+		}	
+		else {
+			System.out.println("UNKNOWN DRIVING STATE");
+			odomForward = secsElapsed*(ol+or)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds.
+			odomRotation = Math.atan2(secsElapsed*(or-ol)/SPEEDCOEFF, BASE_WIDTH);
+		}
+		
+		myPanel.observationData(odomForward, odomRotation);
+		myPanel.updatePose(distForward, distRotation,
+				odomForward, odomRotation,
+				secsElapsed,
+				state);
+	}
+	
+	public synchronized void updateMapEstimation() {
 		List<Short> sensorData;
 
+		proxHorizontal = myClient.getVariable("prox.horizontal");
+		myPanel.setProxHorizontal(proxHorizontal);
+
+		sensorData = myClient.getVariable("prox.ground.reflected");
+
+		myInterface.updateSensorView(sensorData, myPanel.getSensorMapProbsLeft(), myPanel.getSensorMapProbsRight());
+		/*if (state != ROTATION_LEFT && state != ROTATION_RIGHT) */poseUpdated = myPanel.updatePoseGround(sensorData, this);
+	}
+	
+	public synchronized void updatePose(long now) {
 		if (paused) {
 			this.notifyAll();
 			return;
 		}
 		else if (lastTimeStamp > Long.MIN_VALUE) {
-			long dt = now - lastTimeStamp;
-			double secsElapsed = ((double)dt)/1000.0;
-			double distForward; // distance passed in secsElpased in forward direction of the robot
-			double distRotation; // angle covered in secsElapsed around Thymio's center
-			short odomLeft = Short.MIN_VALUE, odomRight = Short.MIN_VALUE;
-			double ol, or;
-			double odomForward;
-			double odomRotation;
-			
 			updating = true;
 			poseUpdated = false;
 			
-			sensorData = myClient.getVariable("motor.left.speed");
-			if (sensorData.size() > 0) odomLeft = sensorData.get(0);
-			else System.out.println("no data for motor.left.speed");
-
-			sensorData = myClient.getVariable("motor.right.speed");
-			if (sensorData.size() > 0) odomRight = sensorData.get(0);
-			else System.out.println("no data for motor.right.speed");
-
-
-			if (odomLeft == Short.MIN_VALUE || odomRight == Short.MIN_VALUE) return;
-
-			odomLeftMean.addValue(odomLeft);
-			odomRightMean.addValue(odomRight);
-
-			ol = odomLeftMean.getMean();
-			or = odomRightMean.getMean();
-
-			distForward = secsElapsed*(vleft+vright)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds.
-			distRotation = Math.atan2(secsElapsed*(vright-vleft)/SPEEDCOEFF, BASE_WIDTH);
-
-			if (state == STOPPED) {
-				odomForward = odomRotation = 0;
-			}
-			else if ((state == AHEAD) || (state == BACK)) {
-				if ((vleft != 0) && (vright !=0)) {
-					
-					odomForward = secsElapsed*(odomLeft+odomRight)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds.
-					odomRotation = -Math.atan2(secsElapsed*(odomRight-odomLeft), BASE_WIDTH);
-					/*
-					odomForward = secsElapsed*(ol+or)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds.
-					odomRotation = Math.atan2(secsElapsed*(or-ol)/SPEEDCOEFF, BASE_WIDTH);
-					*/
-				}
-				else {
-					odomForward = 0;
-					odomRotation = 0;
-				}
-			}
-			else if (state == ROTATION_LEFT || state == ROTATION_RIGHT) {
-				/*
-				distForward = 0;
-				distRotation = ((0.36*VROTATION*((state == ROTATION_LEFT) ? 1 : -1)*secsElapsed+1.09)/180*Math.PI);
-				*/
-				odomForward = 0;
-				//odomForward = secsElapsed*(odomLeft+odomRight)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds
-				//odomRotation = ((0.36*VROTATION*((state == ROTATION_LEFT) ? 1 : -1)*secsElapsed+1.09)/180*Math.PI);
-
-				
-				if (state == ROTATION_RIGHT) {
-					odomRotation = -secsElapsed*0.975328;
-				}
-				else {
-					odomRotation = secsElapsed*0.975328;
-				}
-	/*
-				odomForward = secsElapsed*(ol+or)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds.
-				odomRotation = Math.atan2(secsElapsed*(or-ol)/SPEEDCOEFF, BASE_WIDTH);
-				
-				odomForward = secsElapsed*(odomLeft+odomRight)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds
-				odomRotation = Math.atan2(secsElapsed*(odomRight-odomLeft), BASE_WIDTH);
-			
-				//odomRotation = Math.atan2(secsElapsed*(odomRight-odomLeft), BASE_WIDTH);
-				//odomRotation = Math.atan2(secsElapsed*(or-ol)/SPEEDCOEFF, BASE_WIDTH);
-				 
-			
-				odomForward = secsElapsed*(vleft+vright)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds
-				
-					odomRotation = Math.atan2(secsElapsed*(vright-vleft)/SPEEDCOEFF, BASE_WIDTH);
-				*/
-				System.out.println("rotate: " + state + " dR: " + odomRotation + " driving: " + this.isRotating() + " vleft: " + vleft + " vright: " + vright + " secs: " + secsElapsed);
-			}	
-			else {
-				System.out.println("UNKNOWN DRIVING STATE");
-				odomForward = secsElapsed*(ol+or)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds.
-				odomRotation = Math.atan2(secsElapsed*(or-ol)/SPEEDCOEFF, BASE_WIDTH);
-			}
-			
-			myPanel.observationData(odomForward, odomRotation);
-			myPanel.updatePose(distForward, distRotation,
-					odomForward, odomRotation,
-					secsElapsed,
-					state);
-
-			proxHorizontal = myClient.getVariable("prox.horizontal");
-			myPanel.setProxHorizontal(proxHorizontal);
-
-			sensorData = myClient.getVariable("prox.ground.reflected");
-
-			myInterface.updateSensorView(sensorData, myPanel.getSensorMapProbsLeft(), myPanel.getSensorMapProbsRight());
-			/*if (state != ROTATION_LEFT && state != ROTATION_RIGHT) */poseUpdated = myPanel.updatePoseGround(sensorData, this);
+			updateKalmanEstimation(now);
+			updateMapEstimation();
 			
 			updating = false;
 		}
