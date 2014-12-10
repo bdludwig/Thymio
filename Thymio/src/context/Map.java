@@ -585,7 +585,7 @@ public class Map {
 			int lowery, uppery;
 			int countx, county;
 			
-			myThymio.setSpeed((short)0, (short)0, false);
+			myThymio.setSpeed((short)0, (short)0, true);
 			myThymio.setStopped();
 			myThymio.setDriving(false);
 			

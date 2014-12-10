@@ -13,16 +13,14 @@ public class ThymioTimerThread extends Thread {
 		try {
 			Thread.sleep(delay);
 
-			//myThymio.updatePose(System.currentTimeMillis());
-
-			myThymio.setDriving(false);
-			myThymio.setStopped();
-			myThymio.setSpeed((short)0, (short)0, true);
-
-			System.out.println("timer thread terminated.");
 			synchronized (myThymio) {
+				myThymio.setDriving(false);
+				myThymio.setStopped();
+				myThymio.setSpeed((short)0, (short)0, true);
 				myThymio.notifyAll();
 			}
+
+			System.out.println("timer thread terminated.");
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

@@ -128,9 +128,8 @@ public class ThymioNavigatingThread extends Thread {
 	
 		do {
 			synchronized (myThymio) {
-				while (myThymio.isUpdating() || myThymio.isPaused() || myThymio.isRotating()) {
+				while (myThymio.isUpdating() || myThymio.isPaused()) {
 					try {
-						System.out.println("waiting: " + myThymio.isUpdating() + "," + myThymio.isPaused() + "," +  myThymio.isRotating());
 						myThymio.wait();
 					} catch (InterruptedException e) {
 						continue;
@@ -179,7 +178,7 @@ public class ThymioNavigatingThread extends Thread {
 						System.out.println("AVOIDING obstacle: " + rotationUpdate + " at sensor: " + myPanel.getMinSensorId());
 						System.out.println("FORCE: " + corrVector[0]/length + "," + corrVector[1]/length);
 
-						myThymio.setSpeed((short)0, (short)0, false);
+						myThymio.setSpeed((short)0, (short)0, true);
 						myThymio.setStopped();
 						myThymio.setDriving(false);
 						
@@ -188,8 +187,8 @@ public class ThymioNavigatingThread extends Thread {
 				}
 			}
 			else if (myThymio.isRotating()) System.out.println("STILL ROTATIING TO CORRECT POSITION");
-			else if (!myThymio.isPaused() && !myThymio.isDriving() && !poseUpdated) {
-				System.out.println("GO AHEAD, NO OBSTACLE");
+			else if (!myThymio.isPaused() && !myThymio.isRotating() && !poseUpdated) {
+				System.out.println("GO AHEAD, NO OBSTACLE: " + myPanel.getOrientation());
 				myThymio.drive(direction == 1);
 			}
 

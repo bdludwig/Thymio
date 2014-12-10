@@ -18,11 +18,12 @@ public class ThymioMonitorThread extends Thread {
 						}					
 					}
 				}
+				/*
 				else if (myThymio.getTimerThread() != null) {
 					synchronized (myThymio.getTimerThread()) {
 						myThymio.getTimerThread().join();
 					}
-				}
+				}*/
 				
 				myThymio.updatePose(System.currentTimeMillis());
 				Thread.sleep(Thymio.UPDATE_INTERVAL);
