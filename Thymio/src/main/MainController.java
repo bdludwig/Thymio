@@ -50,7 +50,7 @@ public class MainController extends JFrame {
 		box.add(myPanel);
 		box.add(exPanel);
 		
-		myPanel.setPose(6*myMap.getEdgeLength(), 2.5*myMap.getEdgeLength(), 0);
+		myPanel.setPose(5*myMap.getEdgeLength(), 1.5*myMap.getEdgeLength(), 0);
 		this.setContentPane(box);
 		this.pack();
 		this.setVisible(true);

@@ -312,10 +312,9 @@ public class Thymio extends Thread {
 			odomRotation = Math.atan2(secsElapsed*(or-ol)/SPEEDCOEFF, BASE_WIDTH);
 		*/	
 			//odomForward = secsElapsed*(odomLeft+odomRight)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds
-			odomRotation = Math.atan2(secsElapsed*(odomRight-odomLeft)/SPEEDCOEFF, BASE_WIDTH);
-		
 			//odomRotation = Math.atan2(secsElapsed*(odomRight-odomLeft)/SPEEDCOEFF, BASE_WIDTH);
-			//odomRotation = Math.atan2(secsElapsed*(or-ol)/SPEEDCOEFF, BASE_WIDTH);
+		
+			odomRotation = Math.atan2(secsElapsed*(or-ol)/SPEEDCOEFF, BASE_WIDTH);
 			 
 		/*
 			odomForward = secsElapsed*(vleft+vright)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds

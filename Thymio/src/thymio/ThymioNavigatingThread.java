@@ -159,8 +159,9 @@ public class ThymioNavigatingThread extends Thread {
 
 						if (!myThymio.isPaused()) myThymio.rotate(rotationUpdate);
 					}
-					else if (!myThymio.isStopped()) myThymio.drive(direction == 1);
+					else if (!myThymio.isPaused()) myThymio.drive(direction == 1);
 				}
+				else if (!myThymio.isPaused()) myThymio.drive(direction == 1);
 			}
 
 			if (!myThymio.isStopped()) {
