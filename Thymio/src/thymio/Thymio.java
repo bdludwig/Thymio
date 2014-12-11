@@ -8,13 +8,11 @@ import java.util.List;
 
 import main.Pathfinder;
 import math.MovingAverage;
-import observer.BeliefPanel;
 import observer.EvalBeliefPanel;
 import observer.MapPanel;
 import observer.PositionBeliefPanel;
 import observer.SensorBeliefPanel;
 import observer.ThymioInterface;
-import context.Coordinate;
 import context.MapElement;
 
 public class Thymio extends Thread {
@@ -33,6 +31,7 @@ public class Thymio extends Thread {
 	private MovingAverage odomLeftMean;
 	private MovingAverage odomRightMean;
 	private Thread timerThread;
+	private Thread myMonitor;
 	private boolean paused;
 	private boolean driving;
 	private boolean updating;
@@ -132,7 +131,7 @@ public class Thymio extends Thread {
 	public void setSpeed(short vleft, short vright, boolean update) {
 		ArrayList<Short> data = new ArrayList<Short>();
 		
-		if (update) this.updateKalmanEstimation(System.currentTimeMillis());
+		if (update && (state != STOPPED)) this.updateKalmanEstimation(System.currentTimeMillis());
 		
 		this.vleft = vleft;
 		this.vright = vright;
@@ -143,10 +142,6 @@ public class Thymio extends Thread {
 		myClient.setSpeed(data);
 	}
 
-	private void invalidateTimeStamp() {
-		lastTimeStamp = Long.MIN_VALUE;
-	}
-	
 	public short getVRight() {
 		return vright;
 	}
@@ -162,7 +157,7 @@ public class Thymio extends Thread {
 		this.setSpeed((short)((ahead ? 1 : -1)*STRAIGHTON), (short)((ahead ? 1 : -1)*STRAIGHTON), true);
 	}
 	
-	public synchronized void drive(double distCM) {
+	public void drive(double distCM) {
 		long start = System.currentTimeMillis();
 		long now = start;
 		double dt = 3/14.03541*distCM;
@@ -196,6 +191,10 @@ public class Thymio extends Thread {
 
 	public Thread getTimerThread() {
 		return timerThread;
+	}
+	
+	public void setTimerThread(Thread t) {
+		timerThread = t;
 	}
 	
 	public void rotate(double rad) {
@@ -233,12 +232,12 @@ public class Thymio extends Thread {
 
 			System.out.println("set dt: " + dt + " for " + theta + " (current theta: " + myPanel.getOrientation() + ")");
 
+			timerThread = new ThymioTimerThread((long)(dt*1000), this);
+			timerThread.start();
+			
 			this.setSpeed((s == ROTATION_LEFT ? -VROTATION : VROTATION), (s == ROTATION_LEFT ? VROTATION : -VROTATION), true);
 			state = s;
 			this.setDriving(true);
-
-			timerThread = new ThymioTimerThread((long)(dt*1000), this);
-			timerThread.start();
 		}
 	}
 
@@ -300,7 +299,7 @@ public class Thymio extends Thread {
 			//odomForward = secsElapsed*(odomLeft+odomRight)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds
 			//odomRotation = ((0.36*VROTATION*((state == ROTATION_LEFT) ? 1 : -1)*secsElapsed+1.09)/180*Math.PI);
 
-/*			
+		/*
 			if (state == ROTATION_RIGHT) {
 				odomRotation = -secsElapsed*1.052852;
 			}
@@ -310,12 +309,10 @@ public class Thymio extends Thread {
 
 			odomForward = secsElapsed*(ol+or)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds.
 			odomRotation = Math.atan2(secsElapsed*(or-ol)/SPEEDCOEFF, BASE_WIDTH);
-		*/	
-			//odomForward = secsElapsed*(odomLeft+odomRight)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds
-			//odomRotation = Math.atan2(secsElapsed*(odomRight-odomLeft)/SPEEDCOEFF, BASE_WIDTH);
-		
-			odomRotation = Math.atan2(secsElapsed*(or-ol)/SPEEDCOEFF, BASE_WIDTH);
-			 
+*/		
+			odomForward = secsElapsed*(odomLeft+odomRight)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds
+			odomRotation = Math.atan2(secsElapsed*(odomRight-odomLeft)/SPEEDCOEFF, BASE_WIDTH);
+					 
 		/*
 			odomForward = secsElapsed*(vleft+vright)/(2.0*10.0*SPEEDCOEFF); // estimated distance in cm travelled is secsElapsed seconds
 			*/
@@ -332,7 +329,6 @@ public class Thymio extends Thread {
 				secsElapsed,
 				state);
 		System.out.println("state: " + state + " dR: " + odomRotation + " driving: " + this.isRotating() + " vleft: " + vleft + " vright: " + vright + " theta: " + myPanel.getOrientation() + " secs: " + secsElapsed);
-		myPanel.observationData(odomForward, odomRotation);
 	}
 	
 	public void updateMapEstimation() {
@@ -344,7 +340,7 @@ public class Thymio extends Thread {
 		sensorData = myClient.getVariable("prox.ground.reflected");
 
 		myInterface.updateSensorView(sensorData, myPanel.getSensorMapProbsLeft(), myPanel.getSensorMapProbsRight());
-		/*if (state != ROTATION_LEFT && state != ROTATION_RIGHT) */poseUpdated = myPanel.updatePoseGround(sensorData, this);
+		poseUpdated = myPanel.updatePoseGround(sensorData, this);
 	}
 	
 	public void updatePose(long now) {
@@ -359,17 +355,21 @@ public class Thymio extends Thread {
 			poseUpdated = false;
 			
 			updateKalmanEstimation(now);
-			updateMapEstimation();
+			if (state != ROTATION_LEFT && state != ROTATION_RIGHT) updateMapEstimation();
 			
 			updating = false;
 		}
 		
 
 		lastTimeStamp = now;
-
-		synchronized (this) {
-			this.notifyAll();			
-		}
+	}
+	
+	public void setMonitorThread(Thread t) {
+		myMonitor = t;
+	}
+	
+	public Thread getMonitorThread() {
+		return myMonitor;
 	}
 	
 	public boolean poseUpdated() {

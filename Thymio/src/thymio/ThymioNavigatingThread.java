@@ -127,16 +127,40 @@ public class ThymioNavigatingThread extends Thread {
 		}
 	
 		do {
-			synchronized (myThymio) {
-				while (myThymio.isUpdating() || myThymio.isPaused()) {
-					try {
-						myThymio.wait();
-					} catch (InterruptedException e) {
-						continue;
-					}					
+			if (myThymio.isUpdating()) {
+				synchronized (myThymio.getMonitorThread()) {
+					while (myThymio.isUpdating())
+						try {
+							myThymio.getMonitorThread().wait();
+						} catch (InterruptedException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}				
 				}
 			}
 
+			if (myThymio.isRotating()) {
+				synchronized (myThymio.getTimerThread()) {
+					try {
+						myThymio.getTimerThread().wait();
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
+			}
+			
+			if (myThymio.isPaused()) {
+				synchronized (myThymio) {
+					try {
+						myThymio.wait();
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
+			}
+			
 			poseUpdated = false;
 			
 			if (c.getID() == s.getID()) System.out.println("GOAL REACHED ...");

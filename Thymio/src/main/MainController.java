@@ -50,16 +50,19 @@ public class MainController extends JFrame {
 		box.add(myPanel);
 		box.add(exPanel);
 		
-		myPanel.setPose(5*myMap.getEdgeLength(), 1.5*myMap.getEdgeLength(), 0);
+		myPanel.setPose(6*myMap.getEdgeLength(), 2.5*myMap.getEdgeLength(), 0);
 		this.setContentPane(box);
 		this.pack();
 		this.setVisible(true);
 	}
 	
 	public void run() {
+		Thread monitor = new ThymioMonitorThread(myThymio);
+		
+		myThymio.setMonitorThread(monitor);
 		myPanel.setThymio(myThymio);
 		(new Thread(myPanel)).start();
-		(new ThymioMonitorThread(myThymio)).start();
+		monitor.start();
 		observer = myThymio.getInterface();
 	}
 

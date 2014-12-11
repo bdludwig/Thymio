@@ -133,11 +133,15 @@ public class Map {
 		
 		
 		// sensor noise
-
+/*
 		double [][] valR = {{0.0889258250, -0.0117208306, 1.609542e-04},
                             {-0.0117208306, 0.0341476440, -1.451464e-04},
                             {1.609542e-04, 1.451464e-04,  0.01394959}};
-		
+		*/
+		double [][] valR = {{1, 0, 0},
+                {0, 1, 0},
+                {0, 0, 1}};
+
 		R = new DenseMatrix64F(valR);
 		
 		// initial state
@@ -216,13 +220,15 @@ public class Map {
 		//double [] speed = {dF/dt, dR/dt};
 		
 		posEstimate.predict(Gu);
+		System.out.println(posEstimate.getState());
 		posEstimate.update(DenseMatrix64F.wrap(3, 1, observation), H, R);
 		
 		DenseMatrix64F estimState = posEstimate.getState();
 		estPosX = estimState.get(0);
 		estPosY = estimState.get(1);
 		estTheta = estimState.get(2);
-		
+		System.out.println(posEstimate.getState());
+
 		k = (int)(0.5*estTheta/Math.PI);
 		estTheta -= k*2*Math.PI;
 		
@@ -529,17 +535,6 @@ public class Map {
 	
 	public double getObsTheta() {
 		return obsTheta;
-	}
-	
-	public void observationData(double dist, double theta) {
-		obsX = estPosX + Math.cos(estTheta)*dist;
-		obsY = estPosY + Math.sin(estTheta)*dist;
-		obsTheta = estTheta + theta;
-		/*
-		obsX += Math.cos(obsTheta)*dist;
-		obsY += Math.sin(obsTheta)*dist;
-		obsTheta += theta;
-		*/
 	}
 	
 	public double [] getDistVectorTo(MapElement l, double x, double y) {

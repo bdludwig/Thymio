@@ -220,14 +220,6 @@ public class MapPanel extends JPanel implements Runnable {
 		return myMap.getCurrentPos();
 	}
 	
-	public void observationData(double dist, double theta) {
-		myMap.observationData(dist, theta);
-	}
-	
-	public double [] getDistVectorTo(MapElement l, double x, double y) {
-		return myMap.getDistVectorTo(l, x, y);
-	}
-	
 	public int getMinSensorId() {
 		return myMap.getMinSensorId();
 	}
