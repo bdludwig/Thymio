@@ -227,18 +227,18 @@ public class Thymio extends Thread {
 				//dt = -theta/0.975328;
 				dt = -theta/1.052852;
 			}
-			
+
 			//dt = (Math.abs(theta*180/Math.PI)-1.09)/(0.36*VROTATION); /*Thymio's personal constant */; // secs needed for rotation
-
-			System.out.println("set dt: " + dt + " for " + theta + " (current theta: " + myPanel.getOrientation() + ")");
-
-			timerThread = new ThymioTimerThread((long)(dt*1000), this);
-			timerThread.start();
-			
-			this.setSpeed((s == ROTATION_LEFT ? -VROTATION : VROTATION), (s == ROTATION_LEFT ? VROTATION : -VROTATION), true);
-			state = s;
-			this.setDriving(true);
 		}
+		
+		System.out.println("set dt: " + dt + " for " + theta + " (current theta: " + myPanel.getOrientation() + ")");
+
+		timerThread = new ThymioTimerThread((long)(dt*1000), this);
+		timerThread.start();
+
+		this.setSpeed((s == ROTATION_LEFT ? -VROTATION : VROTATION), (s == ROTATION_LEFT ? VROTATION : -VROTATION), true);
+		state = s;
+		this.setDriving(true);
 	}
 
 	public void updateKalmanEstimation(long now) {

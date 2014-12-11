@@ -13,8 +13,8 @@ public class ThymioTimerThread extends Thread {
 		try {
 			Thread.sleep(delay);
 			System.out.println("WAKE UP");
-			myThymio.setStopped();
 			myThymio.setSpeed((short)0, (short)0, true);
+			myThymio.setStopped();
 			
 			synchronized (myThymio) {
 				myThymio.notifyAll();
