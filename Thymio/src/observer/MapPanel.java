@@ -61,6 +61,10 @@ public class MapPanel extends JPanel implements Runnable {
 		return myMap.updatePoseGround(sensorVal, myThymio, this.getGraphics(), this.getHeight());
 	}
 	
+	public void observationData(double dist, double theta) {
+		myMap.observationData(dist, theta);
+	}
+	
 	public void paint(Graphics g) {
 		double angle = myMap.getEstimOrientation();
 		double x0, y0;

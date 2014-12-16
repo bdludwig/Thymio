@@ -8,6 +8,7 @@ import java.awt.geom.AffineTransform;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
+import java.nio.MappedByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -133,15 +134,15 @@ public class Map {
 		
 		
 		// sensor noise
-/*
+
 		double [][] valR = {{0.0889258250, -0.0117208306, 1.609542e-04},
                             {-0.0117208306, 0.0341476440, -1.451464e-04},
                             {1.609542e-04, 1.451464e-04,  0.01394959}};
-		*/
-		double [][] valR = {{1, 0, 0},
-                {0, 1, 0},
-                {0, 0, 1}};
-
+		/*
+		double [][] valR = {{0, 0, 0},
+                {0, 0, 0},
+                {0, 0, 0}};
+*/
 		R = new DenseMatrix64F(valR);
 		
 		// initial state
@@ -220,14 +221,12 @@ public class Map {
 		//double [] speed = {dF/dt, dR/dt};
 		
 		posEstimate.predict(Gu);
-		System.out.println(posEstimate.getState());
 		posEstimate.update(DenseMatrix64F.wrap(3, 1, observation), H, R);
 		
 		DenseMatrix64F estimState = posEstimate.getState();
 		estPosX = estimState.get(0);
 		estPosY = estimState.get(1);
 		estTheta = estimState.get(2);
-		System.out.println(posEstimate.getState());
 
 		k = (int)(0.5*estTheta/Math.PI);
 		estTheta -= k*2*Math.PI;
@@ -557,16 +556,6 @@ public class Map {
 		centerX = (int)(this.getEstimPosX()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE);
 		centerY = (int)(height - (this.getEstimPosY()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE));
 		
-		poseTransform = new AffineTransform();
-		poseTransform.translate(this.getEstimPosX()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE,
-				height - (this.getEstimPosY()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE));
-		
-		//poseTransform.rotate(this.getEstimOrientation());
-		poseUncertainty = new Ellipse2D.Double(-0.5*MapPanel.LENGTHSCALE, -0.5*MapPanel.LENGTHSCALE, 1*MapPanel.LENGTHSCALE, 1*MapPanel.LENGTHSCALE);
-		uncertaintyBounds = poseTransform.createTransformedShape(poseUncertainty).getBounds();
-		
-		// init maxProb, sensorRot0, and sensorRot1 to values for predicted pose
-		
 		maxProb = this.computeSensorProb(this.getEstimPosX()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE,
 				                          this.getEstimPosY()/MapPanel.LENGTH_EDGE_CM*MapPanel.LENGTHSCALE,
 				                          0.0,
@@ -580,11 +569,11 @@ public class Map {
 			int lowery, uppery;
 			int countx, county;
 			
+			myThymio.setDriving(false);
 			myThymio.setSpeed((short)0, (short)0, true);
 			myThymio.setStopped();
-			myThymio.setDriving(false);
 			
-			System.out.println("IS CORRECTING: " + maxProb + " for THETA: " + this.getEstimOrientation());
+			System.out.println("IS CORRECTING: " + maxProb + " for pose (" + this.getEstimPosX() + "," + this.getEstimPosY() + "," + this.getEstimOrientation() + ")");
 
 			bestPositions = new ArrayList<Pose>();
 			updated = false;
@@ -604,17 +593,6 @@ public class Map {
 			}
 
 			/**
-			 * restrict search space for position update according to knowledge from the map (where am I in the map?, which displacement
-			 * is plausible which one is not?
-			 */
-			
-			lowerx = (int)uncertaintyBounds.getMinX();
-			upperx = (int)uncertaintyBounds.getMaxX();
-
-			lowery = (int)uncertaintyBounds.getMinY();
-			uppery = (int)uncertaintyBounds.getMaxY();
-			
-			/**
 			 * exhaustively sample the search space for a better position
 			 */
 			/*
@@ -626,9 +604,9 @@ public class Map {
 			bestPoseAtPos = new Pose[MapPanel.LENGTHSCALE + 1][MapPanel.LENGTHSCALE + 1];
 
 			countx = 0;
-			for (int x = lowerx; x < upperx; x ++) {
+			for (int x = (int)(centerX - 0.5*MapPanel.LENGTHSCALE); x < (int)(centerX + 0.5*MapPanel.LENGTHSCALE); x ++) {
 				county = 0;
-				for (int y = lowery; y < uppery; y ++) {
+				for (int y = (int)(centerY - 0.5*MapPanel.LENGTHSCALE); y < (int)(centerY + 0.5*MapPanel.LENGTHSCALE); y ++) {
 					bestPoseAtPos[countx][county] = null;
 					
 					for (double dtheta = -ANGLERANGE; dtheta <= ANGLERANGE; dtheta += Math.PI/360) {
@@ -721,7 +699,18 @@ public class Map {
 		
 		return updated;
 	}
-	
+
+	public void observationData(double dist, double theta) {
+		obsX = estPosX + Math.cos(estTheta)*dist;
+		obsY = estPosY + Math.sin(estTheta)*dist;
+		obsTheta = estTheta + theta;
+		/*
+			obsX += Math.cos(obsTheta)*dist;
+			obsY += Math.sin(obsTheta)*dist;
+			obsTheta += theta;
+		 */
+	}
+
 	public Pose [][] getBestPoses() {
 		return bestPoseAtPos;
 	}
